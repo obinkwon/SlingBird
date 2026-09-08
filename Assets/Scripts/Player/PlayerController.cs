@@ -5,13 +5,14 @@ public class PlayerController : MonoBehaviour
     public enum PlayerState
     {
         Ready,
+        Aiming,
         Flying,
         Landed,
         Arrived,
         Dead
     }
 
-    [Header("Player")]
+    [Header("References")]
     [SerializeField] private Rigidbody2D rb;
 
     [Header("Movement")]
@@ -22,36 +23,75 @@ public class PlayerController : MonoBehaviour
     private void Awake()
     {
         if (rb == null)
+        {
             rb = GetComponent<Rigidbody2D>();
+        }
 
         State = PlayerState.Ready;
     }
 
-    public void Launch(Vector2 velocity)
+    public void StartAiming()
     {
-        if (State != PlayerState.Ready)
+        if (State != PlayerState.Ready &&
+            State != PlayerState.Landed)
+        {
             return;
+        }
 
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
 
-        rb.linearVelocity = Vector2.ClampMagnitude(
-            velocity,
-            maxSpeed
-        );
+        State = PlayerState.Aiming;
+    }
+
+    public void Launch(Vector2 velocity)
+    {
+        if (State != PlayerState.Aiming)
+        {
+            return;
+        }
+
+        rb.linearVelocity = Vector2.zero;
+        rb.angularVelocity = 0f;
+
+        rb.linearVelocity =
+            Vector2.ClampMagnitude(
+                velocity,
+                maxSpeed
+            );
 
         State = PlayerState.Flying;
     }
 
-    public void Arrive()
+    public void Land()
     {
         if (State != PlayerState.Flying)
+        {
             return;
+        }
+
+        rb.linearVelocity = Vector2.zero;
+        rb.angularVelocity = 0f;
+
+        State = PlayerState.Landed;
+
+        Debug.Log("Player Landed");
+    }
+
+    public void Arrive()
+    {
+        if (State != PlayerState.Flying &&
+            State != PlayerState.Landed)
+        {
+            return;
+        }
 
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
 
         State = PlayerState.Arrived;
+
+        Debug.Log("Player Arrived");
     }
 
     public void ResetReady()
@@ -65,13 +105,26 @@ public class PlayerController : MonoBehaviour
     public void Die()
     {
         if (State == PlayerState.Dead)
+        {
             return;
+        }
 
         State = PlayerState.Dead;
+
+        rb.linearVelocity = Vector2.zero;
+        rb.angularVelocity = 0f;
+
+        Debug.Log("Player Dead");
     }
 
-    public bool IsMoving()
+    public bool CanAim()
     {
-        return rb.linearVelocity.sqrMagnitude > 0.1f;
+        return State == PlayerState.Ready ||
+               State == PlayerState.Landed;
+    }
+
+    public bool IsFlying()
+    {
+        return State == PlayerState.Flying;
     }
 }

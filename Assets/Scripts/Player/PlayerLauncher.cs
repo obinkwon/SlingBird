@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class PlayerLauncher : MonoBehaviour
 {
@@ -8,6 +9,9 @@ public class PlayerLauncher : MonoBehaviour
     [Header("Launch Settings")]
     [SerializeField] private float launchPower = 8f;
     [SerializeField] private float maxDragDistance = 2.5f;
+
+    [Header("Aim Settings")]
+    [SerializeField] private float playerClickRadius = 1f;
 
     private Camera mainCamera;
 
@@ -19,67 +23,103 @@ public class PlayerLauncher : MonoBehaviour
         mainCamera = Camera.main;
 
         if (player == null)
+        {
             player = GetComponent<PlayerController>();
+        }
     }
 
     private void Update()
     {
-        if (player.State != PlayerController.PlayerState.Ready)
+        if (player == null)
+        {
             return;
+        }
+
+        if (!player.CanAim())
+        {
+            return;
+        }
 
         HandleInput();
     }
 
     private void HandleInput()
     {
-        if (Input.GetMouseButtonDown(0))
+        if (Mouse.current == null)
         {
-            StartDrag(Input.mousePosition);
+            return;
         }
 
-        if (Input.GetMouseButton(0) && isDragging)
+        if (Mouse.current.leftButton.wasPressedThisFrame)
         {
-            UpdateDrag(Input.mousePosition);
+            StartDrag(
+                Mouse.current.position.ReadValue()
+            );
         }
 
-        if (Input.GetMouseButtonUp(0) && isDragging)
+        if (Mouse.current.leftButton.isPressed &&
+            isDragging)
         {
-            EndDrag(Input.mousePosition);
+            UpdateDrag(
+                Mouse.current.position.ReadValue()
+            );
+        }
+
+        if (Mouse.current.leftButton.wasReleasedThisFrame &&
+            isDragging)
+        {
+            EndDrag(
+                Mouse.current.position.ReadValue()
+            );
         }
     }
 
     private void StartDrag(Vector2 screenPosition)
     {
         Vector2 worldPosition =
-            mainCamera.ScreenToWorldPoint(screenPosition);
+            mainCamera.ScreenToWorldPoint(
+                screenPosition
+            );
 
-        float distance = Vector2.Distance(
-            worldPosition,
-            transform.position
-        );
+        float distance =
+            Vector2.Distance(
+                worldPosition,
+                transform.position
+            );
 
-        if (distance > 1.0f)
+        if (distance > playerClickRadius)
+        {
             return;
+        }
 
         isDragging = true;
-        dragStartPosition = worldPosition;
+
+        dragStartPosition =
+            transform.position;
+
+        player.StartAiming();
     }
 
     private void UpdateDrag(Vector2 screenPosition)
     {
         Vector2 currentPosition =
-            mainCamera.ScreenToWorldPoint(screenPosition);
+            mainCamera.ScreenToWorldPoint(
+                screenPosition
+            );
 
         Vector2 dragVector =
-            currentPosition - dragStartPosition;
+            currentPosition -
+            dragStartPosition;
 
-        dragVector = Vector2.ClampMagnitude(
-            dragVector,
-            maxDragDistance
-        );
+        dragVector =
+            Vector2.ClampMagnitude(
+                dragVector,
+                maxDragDistance
+            );
 
         transform.position =
-            (Vector2)transform.position + dragVector;
+            dragStartPosition +
+            dragVector;
     }
 
     private void EndDrag(Vector2 screenPosition)
@@ -87,20 +127,30 @@ public class PlayerLauncher : MonoBehaviour
         isDragging = false;
 
         Vector2 currentPosition =
-            mainCamera.ScreenToWorldPoint(screenPosition);
+            mainCamera.ScreenToWorldPoint(
+                screenPosition
+            );
 
         Vector2 dragVector =
-            currentPosition - dragStartPosition;
+            currentPosition -
+            dragStartPosition;
 
-        dragVector = Vector2.ClampMagnitude(
-            dragVector,
-            maxDragDistance
-        );
+        dragVector =
+            Vector2.ClampMagnitude(
+                dragVector,
+                maxDragDistance
+            );
 
-        Vector2 launchDirection = -dragVector;
+        Vector2 launchDirection =
+            -dragVector;
 
         Vector2 velocity =
-            launchDirection * launchPower;
+            launchDirection *
+            launchPower;
+
+        // 플레이어를 원래 발사 위치로 복귀
+        transform.position =
+            dragStartPosition;
 
         player.Launch(velocity);
     }

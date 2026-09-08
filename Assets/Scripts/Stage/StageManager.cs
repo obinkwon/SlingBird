@@ -4,78 +4,190 @@ public class StageManager : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private PlayerController player;
+    [SerializeField] private Platform platformPrefab;
     [SerializeField] private Goal goalPrefab;
 
-    [Header("Stage Settings")]
-    [SerializeField] private float minGoalDistance = 5f;
-    [SerializeField] private float maxGoalDistance = 8f;
+    [Header("Stage Generation")]
+    [SerializeField] private float minDistance = 5f;
+    [SerializeField] private float maxDistance = 8f;
+
+    [SerializeField] private float minHeight = -2f;
+    [SerializeField] private float maxHeight = 2f;
+    [SerializeField] private int initialStageCount = 4;
+
+    [Header("Platform")]
+    [SerializeField] private Vector2 platformSize = new Vector2(3f, 0.5f);
+
+    [Header("Goal")]
+    [SerializeField] private float goalHeight = 1.5f;
 
     [Header("Score")]
     [SerializeField] private int scorePerGoal = 100;
 
+    [Header("Death")]
+    [SerializeField] private float deathY = -8f;
+
     private int score;
-    private int goalCount;
+    private int stageCount;
+
+    private Transform stageParent;
+
+    // 마지막으로 생성된 플랫폼 위치
+    private Vector2 lastPlatformPosition;
 
     private void Start()
     {
         score = 0;
-        goalCount = 0;
+        stageCount = 0;
 
-        SpawnNextGoal();
+        CreateStageParent();
+
+        InitializeFirstStage();
+    }
+
+    private void CreateStageParent()
+    {
+        GameObject parentObject =
+            new GameObject("GeneratedStages");
+
+        stageParent = parentObject.transform;
+    }
+
+    private void InitializeFirstStage()
+    {
+        lastPlatformPosition =
+            player.transform.position;
+
+        for (int i = 0; i < initialStageCount; i++)
+        {
+            SpawnNextStage();
+        }
     }
 
     public void OnGoalReached()
     {
-        goalCount++;
+        stageCount++;
 
         score += scorePerGoal;
 
-        Debug.Log("Goal Reached!");
+        Debug.Log("Stage : " + stageCount);
         Debug.Log("Score : " + score);
 
-        SpawnNextGoal();
+        SpawnNextStage();
 
         player.ResetReady();
     }
 
-    private void SpawnNextGoal()
+    private void SpawnNextStage()
     {
-        if (goalPrefab == null)
+        if (platformPrefab == null)
+        {
+            Debug.LogWarning(
+                "Platform Prefab이 연결되지 않았습니다."
+            );
+
             return;
+        }
 
-        Vector2 spawnPosition =
-            GetNextGoalPosition();
+        if (goalPrefab == null)
+        {
+            Debug.LogWarning(
+                "Goal Prefab이 연결되지 않았습니다."
+            );
 
-        Instantiate(
-            goalPrefab,
-            spawnPosition,
-            Quaternion.identity
-        );
+            return;
+        }
+
+        Vector2 nextPosition =
+            GetNextPlatformPosition();
+
+        SpawnPlatform(nextPosition);
+
+        SpawnGoal(nextPosition);
+
+        // 다음 생성의 기준점
+        lastPlatformPosition = nextPosition;
     }
 
-    private Vector2 GetNextGoalPosition()
+    private Vector2 GetNextPlatformPosition()
     {
-        Vector2 playerPosition =
-            player.transform.position;
-
         float distance =
             Random.Range(
-                minGoalDistance,
-                maxGoalDistance
+                minDistance,
+                maxDistance
             );
 
         float height =
             Random.Range(
-                -2f,
-                3f
+                minHeight,
+                maxHeight
             );
 
-        return playerPosition +
+        return lastPlatformPosition +
                new Vector2(distance, height);
+    }
+
+    private void SpawnPlatform(Vector2 position)
+    {
+        Platform platform =
+            Instantiate(
+                platformPrefab,
+                position,
+                Quaternion.identity,
+                stageParent
+            );
+
+        platform.transform.localScale =
+            new Vector3(
+                platformSize.x,
+                platformSize.y,
+                1f
+            );
+    }
+
+    private void SpawnGoal(Vector2 platformPosition)
+    {
+        Vector2 goalPosition =
+            platformPosition +
+            Vector2.up * goalHeight;
+
+        Instantiate(
+            goalPrefab,
+            goalPosition,
+            Quaternion.identity,
+            stageParent
+        );
     }
 
     public int GetScore()
     {
         return score;
+    }
+
+    public int GetStageCount()
+    {
+        return stageCount;
+    }
+
+    private void Update()
+    {
+        if (player == null)
+            return;
+
+        if (player.transform.position.y < deathY)
+        {
+            GameOver();
+        }
+    }
+
+    private void GameOver()
+    {
+        if (player.State == PlayerController.PlayerState.Dead)
+            return;
+
+        player.Die();
+
+        Debug.Log("GAME OVER");
+        Debug.Log("Final Score : " + score);
     }
 }
