@@ -27,6 +27,17 @@ public class StageManager : MonoBehaviour
     [Header("Death")]
     [SerializeField] private float deathY = -8f;
 
+    [Header("Platform Types")]
+    [SerializeField] private Platform movingPlatformPrefab;
+
+    [SerializeField, Range(0f, 1f)]
+    private float movingPlatformChance = 0.3f;
+
+    [SerializeField] private BreakPlatform breakPlatformPrefab;
+
+    [SerializeField, Range(0f, 1f)]
+    private float breakPlatformChance = 0.2f;
+
     private int score;
     private int stageCount;
 
@@ -129,9 +140,24 @@ public class StageManager : MonoBehaviour
 
     private void SpawnPlatform(Vector2 position)
     {
+        Platform prefab = platformPrefab;
+
+        float randomValue = Random.value;
+
+        if (breakPlatformPrefab != null &&
+            randomValue < breakPlatformChance)
+        {
+            prefab = breakPlatformPrefab;
+        }
+        else if (movingPlatformPrefab != null &&
+                 randomValue < breakPlatformChance + movingPlatformChance)
+        {
+            prefab = movingPlatformPrefab;
+        }
+
         Platform platform =
             Instantiate(
-                platformPrefab,
+                prefab,
                 position,
                 Quaternion.identity,
                 stageParent
