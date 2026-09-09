@@ -21,7 +21,7 @@ public class StageManager : MonoBehaviour
     [Header("Start Platform")]
     [SerializeField] private Platform startPlatformPrefab;
     [SerializeField] private Vector2 startPlatformPosition = new Vector2(0f, -2f);
-    [SerializeField] private float playerStartOffsetY = 1f;
+    [SerializeField] private float playerStartOffsetY = 0.05f;
 
     [Header("Goal")]
     [SerializeField] private float goalHeight = 1.5f;
@@ -71,75 +71,88 @@ public class StageManager : MonoBehaviour
 
     private void InitializeFirstStage()
     {
-        // 시작 플랫폼 생성
-        Platform startPlatform = null;
-
-        if (startPlatformPrefab != null)
+        if (stageParent == null)
         {
-            startPlatform = Instantiate(
+            GameObject parentObject =
+                new GameObject("GeneratedStages");
+
+            stageParent = parentObject.transform;
+        }
+
+        // 시작 플랫폼 생성
+        Platform startPlatform =
+            Instantiate(
                 startPlatformPrefab,
                 startPlatformPosition,
                 Quaternion.identity,
                 stageParent
             );
 
-            startPlatform.transform.localScale =
-                new Vector3(
-                    platformSize.x,
-                    platformSize.y,
-                    1f
-                );
-        }
-        else
-        {
-            Debug.LogError(
-                "Start Platform Prefab이 연결되지 않았습니다."
+        startPlatform.transform.localScale =
+            new Vector3(
+                platformSize.x,
+                platformSize.y,
+                1f
             );
-        }
 
-        // 플레이어 위치 설정
-        if (player != null)
+        // 플랫폼의 윗면 계산
+        float platformTop =
+            startPlatformPosition.y +
+            (platformSize.y * 0.5f);
+
+        // 플레이어 Collider 가져오기
+        Collider2D playerCollider =
+            player.GetComponent<Collider2D>();
+
+        float playerHalfHeight = 0.5f;
+
+        if (playerCollider != null)
         {
-            Collider2D playerCollider =
-                player.GetComponent<Collider2D>();
-
-            float platformTop =
-                startPlatformPosition.y +
-                platformSize.y * 0.5f;
-
-            float playerHalfHeight = 0.5f;
-
-            if (playerCollider != null)
-            {
-                playerHalfHeight =
-                    playerCollider.bounds.extents.y;
-            }
-
-            Vector2 playerStartPosition =
-                new Vector2(
-                    startPlatformPosition.x,
-                    platformTop +
-                    playerHalfHeight +
-                    0.05f
-                );
-
-            player.SetStartPosition(
-                playerStartPosition
-            );
-        }
-        else
-        {
-            Debug.LogError(
-                "StageManager의 Player 참조가 없습니다."
-            );
+            playerHalfHeight =
+                playerCollider.bounds.extents.y;
         }
 
-        // 다음 플랫폼 생성 기준점
+        // 플레이어가 플랫폼 위에 딱 올라오도록 배치
+        Vector2 playerStartPosition =
+            new Vector2(
+                startPlatformPosition.x,
+                platformTop +
+                playerHalfHeight +
+                playerStartOffsetY
+            );
+
+        Debug.Log(
+            "Start Platform Position : " +
+            startPlatformPosition
+        );
+
+        Debug.Log(
+            "Platform Top : " +
+            platformTop
+        );
+
+        Debug.Log(
+            "Player Half Height : " +
+            playerHalfHeight
+        );
+
+        Debug.Log(
+            "Player Start Position : " +
+            playerStartPosition
+        );
+
+        // Rigidbody2D 위치까지 설정
+        player.SetStartPosition(
+            playerStartPosition
+        );
+
         lastPlatformPosition =
             startPlatformPosition;
 
-        // 이후 플랫폼 생성
-        for (int i = 0; i < initialStageCount; i++)
+        // 첫 스테이지 생성
+        for (int i = 0;
+             i < initialStageCount;
+             i++)
         {
             SpawnNextStage();
         }

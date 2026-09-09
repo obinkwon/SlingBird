@@ -20,12 +20,16 @@ public class PlayerController : MonoBehaviour
 
     public PlayerState State { get; private set; }
 
+    private RigidbodyConstraints2D originalConstraints;
+
     private void Awake()
     {
         if (rb == null)
         {
             rb = GetComponent<Rigidbody2D>();
         }
+
+        originalConstraints = rb.constraints;
 
         State = PlayerState.Ready;
     }
@@ -51,8 +55,15 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
+        // 기존 움직임 제거
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
+
+        // 당기는 동안 위치와 회전을 완전히 고정
+        rb.constraints =
+            originalConstraints |
+            RigidbodyConstraints2D.FreezePosition |
+            RigidbodyConstraints2D.FreezeRotation;
 
         State = PlayerState.Aiming;
     }
@@ -64,14 +75,20 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
+        // 물리 고정 해제
+        rb.constraints = originalConstraints;
+
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
 
-        rb.linearVelocity =
+        // 최대 속도 제한
+        velocity =
             Vector2.ClampMagnitude(
                 velocity,
                 maxSpeed
             );
+
+        rb.linearVelocity = velocity;
 
         State = PlayerState.Flying;
     }
@@ -87,6 +104,8 @@ public class PlayerController : MonoBehaviour
         rb.angularVelocity = 0f;
 
         State = PlayerState.Landed;
+
+        Debug.Log("Player Landed");
     }
 
     public void Arrive()
@@ -101,12 +120,16 @@ public class PlayerController : MonoBehaviour
         rb.angularVelocity = 0f;
 
         State = PlayerState.Arrived;
+
+        Debug.Log("Player Arrived");
     }
 
     public void ResetReady()
     {
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
+
+        rb.constraints = originalConstraints;
 
         State = PlayerState.Ready;
     }
@@ -122,6 +145,8 @@ public class PlayerController : MonoBehaviour
 
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
+
+        Debug.Log("Player Dead");
     }
 
     public bool CanAim()
