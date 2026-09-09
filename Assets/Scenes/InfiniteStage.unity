@@ -595,24 +595,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::StageManager
   player: {fileID: 1001192748}
-  platformPrefab: {fileID: 6956352582527351998, guid: d6f0bd811f7e5a34a9f6f99cbf646adc, type: 3}
-  goalPrefab: {fileID: 2540156487476769516, guid: 84617954055d23f4aab811400d81eba6, type: 3}
-  minDistance: 5
-  maxDistance: 8
-  minHeight: -2
-  maxHeight: 2
-  initialStageCount: 4
-  platformSize: {x: 3, y: 0.5}
-  startPlatformPrefab: {fileID: 6956352582527351998, guid: 749a5aeadebe145479666e5b7e7d4a2b, type: 3}
+  startPlatformPrefab: {fileID: 2563005468605709032, guid: 749a5aeadebe145479666e5b7e7d4a2b, type: 3}
+  platformPrefab: {fileID: 2563005468605709032, guid: d6f0bd811f7e5a34a9f6f99cbf646adc, type: 3}
+  goalPrefab: {fileID: 939786487079494382, guid: 84617954055d23f4aab811400d81eba6, type: 3}
   startPlatformPosition: {x: 0, y: -2}
-  playerStartOffsetY: 0.05
-  goalHeight: 1.5
+  playerStartOffset: 0.05
+  minPlatformDistance: 4
+  maxPlatformDistance: 6
+  minVerticalDistance: 1.5
+  maxVerticalDistance: 3.5
+  initialGoalRadius: 3.275
+  goalRadiusDecrease: 0.12
+  minimumGoalRadius: 0.8
   scorePerGoal: 100
-  deathY: -8
-  movingPlatformPrefab: {fileID: 6956352582527351998, guid: fde7d0cafd832f3449f7d5616c463f8b, type: 3}
-  movingPlatformChance: 0.3
-  breakPlatformPrefab: {fileID: 4136160371194615399, guid: 8d44f465ef2a7f94191be570ff36eed6, type: 3}
-  breakPlatformChance: 0.2
 --- !u!1 &656199902
 GameObject:
   m_ObjectHideFlags: 0

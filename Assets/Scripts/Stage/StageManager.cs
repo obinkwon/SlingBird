@@ -4,162 +4,99 @@ public class StageManager : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private PlayerController player;
-    [SerializeField] private Platform platformPrefab;
-    [SerializeField] private Goal goalPrefab;
+    [SerializeField] private GameObject startPlatformPrefab;
+    [SerializeField] private GameObject platformPrefab;
+    [SerializeField] private GameObject goalPrefab;
 
-    [Header("Stage Generation")]
-    [SerializeField] private float minDistance = 5f;
-    [SerializeField] private float maxDistance = 8f;
+    [Header("Start")]
+    [SerializeField]
+    private Vector2 startPlatformPosition =
+        new Vector2(0f, -2f);
 
-    [SerializeField] private float minHeight = -2f;
-    [SerializeField] private float maxHeight = 2f;
-    [SerializeField] private int initialStageCount = 4;
+    [SerializeField] private float playerStartOffset = 0.05f;
 
-    [Header("Platform")]
-    [SerializeField] private Vector2 platformSize = new Vector2(3f, 0.5f);
-
-    [Header("Start Platform")]
-    [SerializeField] private Platform startPlatformPrefab;
-    [SerializeField] private Vector2 startPlatformPosition = new Vector2(0f, -2f);
-    [SerializeField] private float playerStartOffsetY = 0.05f;
+    [Header("Stage")]
+    [SerializeField] private float minPlatformDistance = 4f;
+    [SerializeField] private float maxPlatformDistance = 6f;
+    [SerializeField] private float minVerticalDistance = 1.5f;
+    [SerializeField] private float maxVerticalDistance = 3.5f;
 
     [Header("Goal")]
-    [SerializeField] private float goalHeight = 1.5f;
-
-    [SerializeField] private float startGoalRadius = 3.275f;
-    [SerializeField] private float minimumGoalRadius = 0.8f;
+    [SerializeField] private float initialGoalRadius = 3.275f;
     [SerializeField] private float goalRadiusDecrease = 0.12f;
+    [SerializeField] private float minimumGoalRadius = 1.2f;
 
     [Header("Score")]
     [SerializeField] private int scorePerGoal = 100;
 
-    [Header("Death")]
-    [SerializeField] private float deathY = -8f;
-
-    [Header("Platform Types")]
-    [SerializeField] private Platform movingPlatformPrefab;
-
-    [SerializeField, Range(0f, 1f)]
-    private float movingPlatformChance = 0.3f;
-
-    [SerializeField] private BreakPlatform breakPlatformPrefab;
-
-    [SerializeField, Range(0f, 1f)]
-    private float breakPlatformChance = 0.2f;
-
-    private int score;
-    private int stageCount;
-
-    private Transform stageParent;
+    private GameObject currentPlatform;
+    private GameObject currentGoal;
 
     private Vector2 lastPlatformPosition;
 
+    private int stageCount;
+    private int score;
+
+    public int StageCount => stageCount;
+    public int Score => score;
+
     private void Start()
     {
-        score = 0;
-        stageCount = 0;
-
-        CreateStageParent();
-
         InitializeFirstStage();
-    }
-
-    private void CreateStageParent()
-    {
-        GameObject parentObject =
-            new GameObject("GeneratedStages");
-
-        stageParent = parentObject.transform;
     }
 
     private void InitializeFirstStage()
     {
-        if (stageParent == null)
-        {
-            CreateStageParent();
-        }
-
-        if (startPlatformPrefab == null)
-        {
-            Debug.LogError("Start Platform Prefab이 연결되지 않았습니다.");
-            return;
-        }
-
-        if (player == null)
-        {
-            Debug.LogError("Player가 연결되지 않았습니다.");
-            return;
-        }
+        stageCount = 0;
+        score = 0;
 
         // 시작 플랫폼 생성
-        Platform startPlatform =
-            Instantiate(
-                startPlatformPrefab,
-                startPlatformPosition,
-                Quaternion.identity,
-                stageParent
-            );
-
-        startPlatform.transform.localScale =
-            new Vector3(
-                platformSize.x,
-                platformSize.y,
-                1f
-            );
-
-        // 플랫폼 윗면
-        float platformTop =
-            startPlatformPosition.y +
-            platformSize.y * 0.5f;
-
-        // 플레이어 Collider
-        Collider2D playerCollider =
-            player.GetComponent<Collider2D>();
-
-        float playerHalfHeight = 0.5f;
-
-        if (playerCollider != null)
-        {
-            playerHalfHeight =
-                playerCollider.bounds.extents.y;
-        }
-
-        // 플레이어 시작 위치
-        Vector2 playerStartPosition =
-            new Vector2(
-                startPlatformPosition.x,
-                platformTop +
-                playerHalfHeight +
-                playerStartOffsetY
-            );
-
-        player.SetStartPosition(playerStartPosition);
+        currentPlatform =
+            SpawnPlatform(startPlatformPosition);
 
         lastPlatformPosition =
             startPlatformPosition;
 
-        Debug.Log(
-            "Start Platform Position : " +
-            startPlatformPosition
-        );
-
-        Debug.Log(
-            "Player Start Position : " +
-            playerStartPosition
-        );
-
-        // 초기 스테이지 생성
-        for (int i = 0;
-             i < initialStageCount;
-             i++)
+        // 플레이어를 시작 플랫폼 위에 배치
+        if (player != null && currentPlatform != null)
         {
-            SpawnNextStage();
-        }
-    }
+            Collider2D platformCollider =
+                currentPlatform.GetComponent<Collider2D>();
 
-    // ==================================================
-    // Goal 도착
-    // ==================================================
+            Collider2D playerCollider =
+                player.GetComponent<Collider2D>();
+
+            if (platformCollider != null &&
+                playerCollider != null)
+            {
+                float platformTop =
+                    platformCollider.bounds.max.y;
+
+                float playerHalfHeight =
+                    playerCollider.bounds.extents.y;
+
+                Vector2 playerPosition =
+                    new Vector2(
+                        startPlatformPosition.x,
+                        platformTop +
+                        playerHalfHeight +
+                        playerStartOffset
+                    );
+
+                player.SetStartPosition(playerPosition);
+            }
+            else
+            {
+                player.SetStartPosition(
+                    startPlatformPosition +
+                    Vector2.up * playerStartOffset
+                );
+            }
+        }
+
+        // 시작할 때는 다음 Goal 하나만 생성
+        SpawnNextGoal();
+    }
 
     public void OnGoalReached(Vector2 goalPosition)
     {
@@ -170,269 +107,191 @@ public class StageManager : MonoBehaviour
             return;
 
         stageCount++;
-
         score += scorePerGoal;
 
-        Debug.Log("Stage : " + stageCount);
-        Debug.Log("Score : " + score);
-
-        // 현재 비행 종료
+        // 플레이어의 비행 상태 종료
         player.ReachGoal();
 
-        // Goal 아래의 새로운 플랫폼 생성
-        Vector2 newPlatformPosition =
-            new Vector2(
-                goalPosition.x,
-                goalPosition.y - goalHeight
-            );
+        // ------------------------------------------------
+        // 1. 이전 플랫폼 삭제
+        // ------------------------------------------------
 
-        SpawnPlatform(newPlatformPosition);
+        if (currentPlatform != null)
+        {
+            Destroy(currentPlatform);
+            currentPlatform = null;
+        }
 
-        // 새 플랫폼 기준으로 다음 Goal 생성
+        // ------------------------------------------------
+        // 2. 현재 도착한 Goal 삭제
+        // ------------------------------------------------
+
+        if (currentGoal != null)
+        {
+            Destroy(currentGoal);
+            currentGoal = null;
+        }
+
+        // ------------------------------------------------
+        // 3. 방금 도착한 Goal 위치에 플랫폼 생성
+        // ------------------------------------------------
+
+        currentPlatform =
+            SpawnPlatform(goalPosition);
+
         lastPlatformPosition =
-            newPlatformPosition;
+            goalPosition;
 
-        SpawnGoal(newPlatformPosition);
+        // ------------------------------------------------
+        // 4. 플레이어를 새 플랫폼 위치로 이동
+        // ------------------------------------------------
 
-        // 플레이어를 새 플랫폼 위로 이동
-        MovePlayerToPlatform(newPlatformPosition);
+        MovePlayerToPlatform(goalPosition);
+
+        // ------------------------------------------------
+        // 5. 다음 Goal만 생성
+        //    다음 플랫폼은 미리 만들지 않는다.
+        // ------------------------------------------------
+
+        SpawnNextGoal();
     }
 
-    // ==================================================
-    // 다음 스테이지 생성
-    // ==================================================
-
-    private void SpawnNextStage()
+    private void SpawnNextGoal()
     {
-        if (platformPrefab == null)
-        {
-            Debug.LogWarning(
-                "Platform Prefab이 연결되지 않았습니다."
-            );
+        Vector2 nextGoalPosition =
+            GetNextGoalPosition();
 
-            return;
-        }
-
-        if (goalPrefab == null)
-        {
-            Debug.LogWarning(
-                "Goal Prefab이 연결되지 않았습니다."
-            );
-
-            return;
-        }
-
-        Vector2 nextPosition =
-            GetNextPlatformPosition();
-
-        SpawnPlatform(nextPosition);
-
-        SpawnGoal(nextPosition);
-
-        lastPlatformPosition =
-            nextPosition;
+        SpawnGoal(nextGoalPosition);
     }
 
-    // ==================================================
-    // 플랫폼 위치 계산
-    // ==================================================
-
-    private Vector2 GetNextPlatformPosition()
+    private Vector2 GetNextGoalPosition()
     {
         float distance =
             Random.Range(
-                minDistance,
-                maxDistance
+                minPlatformDistance,
+                maxPlatformDistance
             );
 
-        float height =
-            Random.Range(
-                minHeight,
-                maxHeight
+        Vector2 offset =
+            new Vector2(
+                distance,
+                0f
             );
 
-        return lastPlatformPosition +
-               new Vector2(
-                   distance,
-                   height
-               );
+        return lastPlatformPosition + offset;
     }
 
-    // ==================================================
-    // 플랫폼 생성
-    // ==================================================
-
-    private void SpawnPlatform(Vector2 position)
+    private GameObject SpawnPlatform(Vector2 position)
     {
-        Platform prefab =
+        GameObject prefab =
             platformPrefab;
 
-        float randomValue =
-            Random.value;
-
-        if (breakPlatformPrefab != null &&
-            randomValue < breakPlatformChance)
+        if (prefab == null)
         {
             prefab =
-                breakPlatformPrefab;
-        }
-        else if (movingPlatformPrefab != null &&
-                 randomValue <
-                 breakPlatformChance +
-                 movingPlatformChance)
-        {
-            prefab =
-                movingPlatformPrefab;
+                startPlatformPrefab;
         }
 
-        Platform platform =
+        if (prefab == null)
+        {
+            Debug.LogError(
+                "StageManager: Platform Prefab이 없습니다."
+            );
+
+            return null;
+        }
+
+        GameObject platform =
             Instantiate(
                 prefab,
                 position,
-                Quaternion.identity,
-                stageParent
+                Quaternion.identity
             );
 
-        platform.transform.localScale =
-            new Vector3(
-                platformSize.x,
-                platformSize.y,
-                1f
-            );
+        return platform;
     }
 
-    // ==================================================
-    // Goal 생성
-    // ==================================================
-
-    private void SpawnGoal(Vector2 platformPosition)
+    private void SpawnGoal(Vector2 position)
     {
-        Vector2 goalPosition =
-            platformPosition +
-            Vector2.up * goalHeight;
-
-        Goal goal =
-            Instantiate(
-                goalPrefab,
-                goalPosition,
-                Quaternion.identity,
-                stageParent
-            );
-
-        // 스테이지가 진행될수록 Goal 범위 감소
-        float radius =
-            Mathf.Max(
-                minimumGoalRadius,
-                startGoalRadius -
-                (stageCount * goalRadiusDecrease)
-            );
-
-        // Goal의 CircleCollider2D 크기 변경
-        CircleCollider2D goalCollider =
-            goal.GetComponent<CircleCollider2D>();
-
-        if (goalCollider != null)
+        if (goalPrefab == null)
         {
-            goalCollider.radius = radius;
-
-            Debug.Log(
-                "Goal Radius : " +
-                radius
+            Debug.LogError(
+                "StageManager: Goal Prefab이 없습니다."
             );
+
+            return;
         }
 
-        // Goal Transform 크기도 원형 범위에 맞춤
-        goal.transform.localScale =
-            Vector3.one;
+        currentGoal =
+            Instantiate(
+                goalPrefab,
+                position,
+                Quaternion.identity
+            );
+
+        float goalRadius =
+            Mathf.Max(
+                minimumGoalRadius,
+                initialGoalRadius -
+                stageCount * goalRadiusDecrease
+            );
+
+        currentGoal.transform.localScale =
+            Vector3.one * goalRadius;
+
+        Goal goal =
+            currentGoal.GetComponent<Goal>();
+
+        if (goal != null)
+        {
+            goal.ResetGoal();
+        }
     }
 
-    // ==================================================
-    // 플레이어를 새 플랫폼 위로 이동
-    // ==================================================
-
-    private void MovePlayerToPlatform(
-        Vector2 platformPosition)
+    private void MovePlayerToPlatform(Vector2 position)
     {
         if (player == null)
             return;
+
+        Collider2D platformCollider =
+            currentPlatform != null
+                ? currentPlatform.GetComponent<Collider2D>()
+                : null;
 
         Collider2D playerCollider =
             player.GetComponent<Collider2D>();
 
-        float playerHalfHeight = 0.5f;
-
-        if (playerCollider != null)
+        if (platformCollider != null &&
+            playerCollider != null)
         {
-            playerHalfHeight =
+            float platformTop =
+                platformCollider.bounds.max.y;
+
+            float playerHalfHeight =
                 playerCollider.bounds.extents.y;
-        }
 
-        float platformTop =
-            platformPosition.y +
-            platformSize.y * 0.5f;
+            Vector2 playerPosition =
+                new Vector2(
+                    position.x,
+                    platformTop +
+                    playerHalfHeight +
+                    playerStartOffset
+                );
 
-        Vector2 playerPosition =
-            new Vector2(
-                platformPosition.x,
-                platformTop +
-                playerHalfHeight +
-                playerStartOffsetY
+            player.MoveToPlatform(
+                playerPosition
             );
-
-        player.MoveToPlatform(playerPosition);
-
-        Debug.Log(
-            "Player moved to platform : " +
-            playerPosition
-        );
+        }
+        else
+        {
+            player.MoveToPlatform(
+                position +
+                Vector2.up * playerStartOffset
+            );
+        }
     }
-
-    // ==================================================
-    // Score
-    // ==================================================
-
     public int GetScore()
     {
         return score;
-    }
-
-    public int GetStageCount()
-    {
-        return stageCount;
-    }
-
-    // ==================================================
-    // Death
-    // ==================================================
-
-    private void Update()
-    {
-        if (player == null)
-            return;
-
-        if (player.State ==
-            PlayerController.PlayerState.Dead)
-        {
-            return;
-        }
-
-        if (player.transform.position.y < deathY)
-        {
-            GameOver();
-        }
-    }
-
-    private void GameOver()
-    {
-        if (player.State ==
-            PlayerController.PlayerState.Dead)
-        {
-            return;
-        }
-
-        player.Die();
-
-        Debug.Log("GAME OVER");
-        Debug.Log("Final Score : " + score);
     }
 }
