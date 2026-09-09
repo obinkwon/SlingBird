@@ -30,6 +30,19 @@ public class PlayerController : MonoBehaviour
         State = PlayerState.Ready;
     }
 
+    public void SetStartPosition(Vector2 position)
+    {
+        rb.linearVelocity = Vector2.zero;
+        rb.angularVelocity = 0f;
+
+        rb.position = position;
+        transform.position = position;
+
+        Physics2D.SyncTransforms();
+
+        State = PlayerState.Ready;
+    }
+
     public void StartAiming()
     {
         if (State != PlayerState.Ready &&
@@ -74,8 +87,6 @@ public class PlayerController : MonoBehaviour
         rb.angularVelocity = 0f;
 
         State = PlayerState.Landed;
-
-        Debug.Log("Player Landed");
     }
 
     public void Arrive()
@@ -90,8 +101,6 @@ public class PlayerController : MonoBehaviour
         rb.angularVelocity = 0f;
 
         State = PlayerState.Arrived;
-
-        Debug.Log("Player Arrived");
     }
 
     public void ResetReady()
@@ -113,8 +122,6 @@ public class PlayerController : MonoBehaviour
 
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
-
-        Debug.Log("Player Dead");
     }
 
     public bool CanAim()
