@@ -64,17 +64,17 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        // 기존 속도 제거
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
 
-        // 당기는 동안 플레이어 위치 고정
         rb.constraints =
             originalConstraints |
             RigidbodyConstraints2D.FreezePosition |
             RigidbodyConstraints2D.FreezeRotation;
 
         State = PlayerState.Aiming;
+
+        Debug.Log("Player Aiming");
     }
 
     // --------------------------------------------------
@@ -85,13 +85,16 @@ public class PlayerController : MonoBehaviour
     {
         if (State != PlayerState.Aiming)
         {
+            Debug.LogWarning(
+                $"Launch rejected. Current State: {State}"
+            );
+
             return;
         }
 
         // 물리 고정 해제
         rb.constraints = originalConstraints;
 
-        rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
 
         // 최대 속도 제한
@@ -101,11 +104,14 @@ public class PlayerController : MonoBehaviour
                 maxSpeed
             );
 
+        // 발사 속도 적용
         rb.linearVelocity = velocity;
 
         State = PlayerState.Flying;
 
-        Debug.Log("Player Launched");
+        Debug.Log(
+            $"Player Launched | Velocity: {rb.linearVelocity}"
+        );
     }
 
     // --------------------------------------------------
@@ -122,7 +128,6 @@ public class PlayerController : MonoBehaviour
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
 
-        // 정상적인 물리 상태 유지
         rb.constraints = originalConstraints;
 
         State = PlayerState.Landed;
@@ -133,13 +138,11 @@ public class PlayerController : MonoBehaviour
     // --------------------------------------------------
     // Goal 진입
     //
-    // 중요:
-    // Goal은 도착해서 멈추는 지점이 아니다.
-    // 다음 발사를 위한 새로운 위치를 만드는 트리거다.
+    // Goal은 도착해서 즉시 멈추는 지점이 아니다.
+    // StageManager가 다음 Platform을 만든 뒤
+    // MoveToPlatform()을 호출한다.
     //
-    // 따라서 여기서는 플레이어를 얼리지 않는다.
-    // StageManager가 새로운 Platform을 만든 뒤
-    // 필요한 위치에서 Land()를 호출한다.
+    // 따라서 여기서는 velocity를 0으로 만들지 않는다.
     // --------------------------------------------------
 
     public void ReachGoal()
@@ -149,19 +152,17 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        rb.linearVelocity = Vector2.zero;
-        rb.angularVelocity = 0f;
+        Debug.Log(
+            $"Goal Reached | Current Velocity: {rb.linearVelocity}"
+        );
 
-        rb.constraints = originalConstraints;
-
-        Debug.Log("Goal Reached");
+        // 여기서는 속도를 건드리지 않는다.
+        // StageManager가 다음 위치를 결정한 뒤
+        // MoveToPlatform()을 호출한다.
     }
 
     // --------------------------------------------------
     // 다음 Platform 위치로 이동
-    //
-    // StageManager가 새로운 Platform을 만든 뒤
-    // 플레이어를 해당 위치로 이동시키기 위해 사용.
     // --------------------------------------------------
 
     public void MoveToPlatform(Vector2 position)
@@ -178,7 +179,9 @@ public class PlayerController : MonoBehaviour
 
         State = PlayerState.Landed;
 
-        Debug.Log("Player moved to new platform");
+        Debug.Log(
+            $"Player moved to new platform: {position}"
+        );
     }
 
     // --------------------------------------------------
@@ -193,6 +196,8 @@ public class PlayerController : MonoBehaviour
         rb.constraints = originalConstraints;
 
         State = PlayerState.Ready;
+
+        Debug.Log("Player Reset Ready");
     }
 
     // --------------------------------------------------

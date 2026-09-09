@@ -8,6 +8,9 @@ public class Platform : MonoBehaviour
     [Header("Landing")]
     [SerializeField] private float minimumLandingNormalY = 0.5f;
 
+    [Header("Landing Safety")]
+    [SerializeField] private float minimumDownwardVelocity = -0.1f;
+
     public bool CanLand => canLand;
 
     protected virtual void OnCollisionEnter2D(Collision2D collision)
@@ -21,12 +24,24 @@ public class Platform : MonoBehaviour
         if (player == null)
             return;
 
-        // 날아가는 중이 아니면 착지 처리하지 않음
+        // Flying 상태가 아니면 착지 처리하지 않음
         if (!player.IsFlying())
             return;
 
         if (collision.contactCount == 0)
             return;
+
+        // 플레이어가 아래쪽으로 이동하고 있을 때만 착지
+        Rigidbody2D playerRb =
+            player.GetComponent<Rigidbody2D>();
+
+        if (playerRb == null)
+            return;
+
+        if (playerRb.linearVelocity.y > minimumDownwardVelocity)
+        {
+            return;
+        }
 
         // 여러 접점 중 하나라도 위쪽을 향하고 있으면 착지
         for (int i = 0; i < collision.contactCount; i++)

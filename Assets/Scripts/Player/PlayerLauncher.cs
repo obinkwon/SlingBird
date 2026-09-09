@@ -5,6 +5,8 @@ public class PlayerLauncher : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private PlayerController player;
+    [SerializeField] private Rigidbody2D rb;
+    [SerializeField] private Camera mainCamera;
 
     [Header("Launch Settings")]
     [SerializeField] private float launchPower = 8f;
@@ -13,19 +15,36 @@ public class PlayerLauncher : MonoBehaviour
     [Header("Aim Settings")]
     [SerializeField] private float playerClickRadius = 1f;
 
-    private Camera mainCamera;
+    [Header("Aim Line")]
+    [SerializeField] private LineRenderer aimLine;
+
+    [Header("Trajectory")]
+    [SerializeField] private LineRenderer trajectoryLine;
+    [SerializeField] private int trajectoryPointCount = 30;
+    [SerializeField] private float trajectoryTimeStep = 0.08f;
 
     private bool isDragging;
     private Vector2 dragStartPosition;
+    private Vector2 currentDragPosition;
 
     private void Awake()
     {
-        mainCamera = Camera.main;
-
         if (player == null)
         {
             player = GetComponent<PlayerController>();
         }
+
+        if (rb == null)
+        {
+            rb = GetComponent<Rigidbody2D>();
+        }
+
+        if (mainCamera == null)
+        {
+            mainCamera = Camera.main;
+        }
+
+        HideAim();
     }
 
     private void Update()
@@ -35,13 +54,18 @@ public class PlayerLauncher : MonoBehaviour
             return;
         }
 
-        if (!player.CanAim())
+        // 드래그 중이 아닐 때만 CanAim 검사
+        if (!isDragging && !player.CanAim())
         {
             return;
         }
 
         HandleInput();
     }
+
+    // --------------------------------------------------
+    // Input
+    // --------------------------------------------------
 
     private void HandleInput()
     {
@@ -50,6 +74,7 @@ public class PlayerLauncher : MonoBehaviour
             return;
         }
 
+        // 클릭 시작
         if (Mouse.current.leftButton.wasPressedThisFrame)
         {
             StartDrag(
@@ -57,6 +82,7 @@ public class PlayerLauncher : MonoBehaviour
             );
         }
 
+        // 드래그 중
         if (Mouse.current.leftButton.isPressed &&
             isDragging)
         {
@@ -65,6 +91,7 @@ public class PlayerLauncher : MonoBehaviour
             );
         }
 
+        // 클릭 해제
         if (Mouse.current.leftButton.wasReleasedThisFrame &&
             isDragging)
         {
@@ -74,17 +101,24 @@ public class PlayerLauncher : MonoBehaviour
         }
     }
 
+    // --------------------------------------------------
+    // Start Drag
+    // --------------------------------------------------
+
     private void StartDrag(Vector2 screenPosition)
     {
         Vector2 worldPosition =
-            mainCamera.ScreenToWorldPoint(
-                screenPosition
-            );
+            GetWorldPosition(screenPosition);
+
+        Vector2 playerPosition =
+            rb != null
+                ? rb.position
+                : (Vector2)transform.position;
 
         float distance =
             Vector2.Distance(
                 worldPosition,
-                transform.position
+                playerPosition
             );
 
         if (distance > playerClickRadius)
@@ -92,66 +126,293 @@ public class PlayerLauncher : MonoBehaviour
             return;
         }
 
+        dragStartPosition =
+            playerPosition;
+
+        currentDragPosition =
+            dragStartPosition;
+
         isDragging = true;
 
-        dragStartPosition =
-            transform.position;
-
         player.StartAiming();
+
+        ShowAim();
+
+        DrawAim();
+
+        Debug.Log(
+            $"Start Drag | Position: {dragStartPosition}"
+        );
     }
+
+    // --------------------------------------------------
+    // Update Drag
+    // --------------------------------------------------
 
     private void UpdateDrag(Vector2 screenPosition)
     {
         Vector2 currentPosition =
-            mainCamera.ScreenToWorldPoint(
-                screenPosition
-            );
+            GetWorldPosition(screenPosition);
 
-        Vector2 dragVector =
-            currentPosition -
-            dragStartPosition;
+        currentDragPosition =
+            ClampDragPosition(currentPosition);
 
-        dragVector =
-            Vector2.ClampMagnitude(
-                dragVector,
-                maxDragDistance
-            );
+        // 조준 중에는 플레이어를 실제로 이동
+        if (rb != null)
+        {
+            rb.position =
+                currentDragPosition;
+        }
+        else
+        {
+            transform.position =
+                currentDragPosition;
+        }
 
-        transform.position =
-            dragStartPosition +
-            dragVector;
+        DrawAim();
     }
+
+    // --------------------------------------------------
+    // End Drag
+    // --------------------------------------------------
 
     private void EndDrag(Vector2 screenPosition)
     {
         isDragging = false;
 
         Vector2 currentPosition =
-            mainCamera.ScreenToWorldPoint(
-                screenPosition
-            );
+            GetWorldPosition(screenPosition);
 
-        Vector2 dragVector =
-            currentPosition -
-            dragStartPosition;
+        currentDragPosition =
+            ClampDragPosition(currentPosition);
 
-        dragVector =
-            Vector2.ClampMagnitude(
-                dragVector,
-                maxDragDistance
-            );
+        Vector2 pullVector =
+            dragStartPosition -
+            currentDragPosition;
 
-        Vector2 launchDirection =
-            -dragVector;
+        // 너무 조금 당겼으면 발사하지 않음
+        if (pullVector.magnitude < 0.15f)
+        {
+            ResetPlayerPosition();
+
+            player.ResetReady();
+
+            HideAim();
+
+            Debug.Log("Drag cancelled - too short");
+
+            return;
+        }
 
         Vector2 velocity =
-            launchDirection *
+            pullVector *
             launchPower;
 
-        // 플레이어를 원래 발사 위치로 복귀
-        transform.position =
+        // 플레이어를 원래 위치로 복귀
+        ResetPlayerPosition();
+
+        HideAim();
+
+        Debug.Log(
+            $"End Drag | Pull: {pullVector} | Velocity: {velocity}"
+        );
+
+        // 실제 발사
+        player.Launch(velocity);
+    }
+
+    // --------------------------------------------------
+    // Clamp
+    // --------------------------------------------------
+
+    private Vector2 ClampDragPosition(Vector2 position)
+    {
+        Vector2 offset =
+            position -
             dragStartPosition;
 
-        player.Launch(velocity);
+        if (offset.magnitude >
+            maxDragDistance)
+        {
+            offset =
+                offset.normalized *
+                maxDragDistance;
+        }
+
+        return dragStartPosition + offset;
+    }
+
+    // --------------------------------------------------
+    // Aim Drawing
+    // --------------------------------------------------
+
+    private void DrawAim()
+    {
+        if (aimLine != null)
+        {
+            aimLine.positionCount = 2;
+
+            aimLine.SetPosition(
+                0,
+                dragStartPosition
+            );
+
+            aimLine.SetPosition(
+                1,
+                currentDragPosition
+            );
+        }
+
+        DrawTrajectory();
+    }
+
+    // --------------------------------------------------
+    // Trajectory
+    // --------------------------------------------------
+
+    private void DrawTrajectory()
+    {
+        if (trajectoryLine == null ||
+            rb == null)
+        {
+            return;
+        }
+
+        Vector2 pullVector =
+            dragStartPosition -
+            currentDragPosition;
+
+        Vector2 velocity =
+            pullVector *
+            launchPower;
+
+        // 실제 발사 속도와 동일하게 제한
+        velocity =
+            Vector2.ClampMagnitude(
+                velocity,
+                15f
+            );
+
+        trajectoryLine.positionCount =
+            trajectoryPointCount;
+
+        Vector2 gravity =
+            Physics2D.gravity *
+            rb.gravityScale;
+
+        for (int i = 0;
+             i < trajectoryPointCount;
+             i++)
+        {
+            float time =
+                i * trajectoryTimeStep;
+
+            Vector2 position =
+                dragStartPosition +
+                velocity * time +
+                0.5f *
+                gravity *
+                time *
+                time;
+
+            trajectoryLine.SetPosition(
+                i,
+                position
+            );
+        }
+    }
+
+    // --------------------------------------------------
+    // Player Position
+    // --------------------------------------------------
+
+    private void ResetPlayerPosition()
+    {
+        if (rb != null)
+        {
+            rb.position =
+                dragStartPosition;
+        }
+        else
+        {
+            transform.position =
+                dragStartPosition;
+        }
+    }
+
+    // --------------------------------------------------
+    // World Position
+    // --------------------------------------------------
+
+    private Vector2 GetWorldPosition(
+        Vector2 screenPosition)
+    {
+        if (mainCamera == null)
+        {
+            return transform.position;
+        }
+
+        Vector3 worldPosition =
+            mainCamera.ScreenToWorldPoint(
+                new Vector3(
+                    screenPosition.x,
+                    screenPosition.y,
+                    Mathf.Abs(
+                        mainCamera.transform.position.z
+                    )
+                )
+            );
+
+        return worldPosition;
+    }
+
+    // --------------------------------------------------
+    // Aim Visibility
+    // --------------------------------------------------
+
+    private void ShowAim()
+    {
+        if (aimLine != null)
+        {
+            aimLine.enabled = true;
+        }
+
+        if (trajectoryLine != null)
+        {
+            trajectoryLine.enabled = true;
+        }
+    }
+
+    private void HideAim()
+    {
+        if (aimLine != null)
+        {
+            aimLine.enabled = false;
+        }
+
+        if (trajectoryLine != null)
+        {
+            trajectoryLine.enabled = false;
+        }
+    }
+
+    // --------------------------------------------------
+    // Cancel
+    // --------------------------------------------------
+
+    public void CancelAim()
+    {
+        isDragging = false;
+
+        HideAim();
+
+        if (player != null &&
+            player.State ==
+            PlayerController.PlayerState.Aiming)
+        {
+            ResetPlayerPosition();
+
+            player.ResetReady();
+        }
     }
 }
