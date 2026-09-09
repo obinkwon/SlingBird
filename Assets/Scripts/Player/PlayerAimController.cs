@@ -59,6 +59,10 @@ public class PlayerAimController : MonoBehaviour
         }
     }
 
+    // ==================================================
+    // 입력 시작
+    // ==================================================
+
     private void CheckInputStart()
     {
         if (Mouse.current != null &&
@@ -80,8 +84,16 @@ public class PlayerAimController : MonoBehaviour
         }
     }
 
+    // ==================================================
+    // 조준 시작
+    // ==================================================
+
     private void TryStartAim(Vector2 pointerPosition)
     {
+        if (player == null)
+            return;
+
+        // Ready 또는 Landed 상태에서만 가능
         if (!player.CanAim())
             return;
 
@@ -91,6 +103,7 @@ public class PlayerAimController : MonoBehaviour
         if (hit == null)
             return;
 
+        // 플레이어를 클릭했는지 확인
         if (!hit.transform.IsChildOf(transform) &&
             hit.transform != transform)
         {
@@ -101,6 +114,7 @@ public class PlayerAimController : MonoBehaviour
 
         isDragging = true;
 
+        // 현재 플레이어 위치를 발사 기준점으로 사용
         dragStartPosition =
             rb.position;
 
@@ -110,12 +124,19 @@ public class PlayerAimController : MonoBehaviour
         ShowAim();
     }
 
+    // ==================================================
+    // 드래그
+    // ==================================================
+
     private void UpdateDrag()
     {
         Vector2 pointerPosition;
         bool released = false;
 
+        // ----------------------------------------------
         // 마우스
+        // ----------------------------------------------
+
         if (Mouse.current != null)
         {
             if (Mouse.current.leftButton.isPressed)
@@ -135,7 +156,11 @@ public class PlayerAimController : MonoBehaviour
                 return;
             }
         }
+
+        // ----------------------------------------------
         // 터치
+        // ----------------------------------------------
+
         else if (Touchscreen.current != null)
         {
             var touch =
@@ -174,6 +199,10 @@ public class PlayerAimController : MonoBehaviour
         }
     }
 
+    // ==================================================
+    // 당기는 거리 제한
+    // ==================================================
+
     private Vector2 ClampDragPosition(Vector2 position)
     {
         Vector2 offset =
@@ -191,6 +220,10 @@ public class PlayerAimController : MonoBehaviour
         return dragStartPosition + offset;
     }
 
+    // ==================================================
+    // 발사
+    // ==================================================
+
     private void Launch()
     {
         isDragging = false;
@@ -199,6 +232,7 @@ public class PlayerAimController : MonoBehaviour
             dragStartPosition -
             currentDragPosition;
 
+        // 거의 당기지 않았다면 발사하지 않음
         if (pullVector.magnitude < 0.15f)
         {
             player.ResetReady();
@@ -215,6 +249,10 @@ public class PlayerAimController : MonoBehaviour
 
         HideAim();
     }
+
+    // ==================================================
+    // 조준 표시
+    // ==================================================
 
     private void DrawAim()
     {
@@ -236,6 +274,10 @@ public class PlayerAimController : MonoBehaviour
         DrawTrajectory();
     }
 
+    // ==================================================
+    // 예상 궤적
+    // ==================================================
+
     private void DrawTrajectory()
     {
         if (trajectoryLine == null)
@@ -248,6 +290,7 @@ public class PlayerAimController : MonoBehaviour
         Vector2 velocity =
             pullVector * launchPower;
 
+        // PlayerController의 최대 속도와 동일하게 제한
         velocity =
             Vector2.ClampMagnitude(
                 velocity,
@@ -283,6 +326,10 @@ public class PlayerAimController : MonoBehaviour
         }
     }
 
+    // ==================================================
+    // 마우스 위치
+    // ==================================================
+
     private Vector2 GetMouseWorldPosition()
     {
         Vector3 screenPosition =
@@ -300,6 +347,10 @@ public class PlayerAimController : MonoBehaviour
 
         return worldPosition;
     }
+
+    // ==================================================
+    // 터치 위치
+    // ==================================================
 
     private Vector2 GetTouchWorldPosition()
     {
@@ -321,6 +372,10 @@ public class PlayerAimController : MonoBehaviour
         return worldPosition;
     }
 
+    // ==================================================
+    // 조준 표시 ON
+    // ==================================================
+
     private void ShowAim()
     {
         if (aimLine != null)
@@ -330,6 +385,10 @@ public class PlayerAimController : MonoBehaviour
             trajectoryLine.enabled = true;
     }
 
+    // ==================================================
+    // 조준 표시 OFF
+    // ==================================================
+
     private void HideAim()
     {
         if (aimLine != null)
@@ -337,5 +396,22 @@ public class PlayerAimController : MonoBehaviour
 
         if (trajectoryLine != null)
             trajectoryLine.enabled = false;
+    }
+
+    // ==================================================
+    // 외부에서 조준 강제 종료
+    // ==================================================
+
+    public void CancelAim()
+    {
+        isDragging = false;
+
+        HideAim();
+
+        if (player != null &&
+            player.State == PlayerController.PlayerState.Aiming)
+        {
+            player.ResetReady();
+        }
     }
 }

@@ -5,6 +5,9 @@ public class Platform : MonoBehaviour
     [Header("Platform Settings")]
     [SerializeField] protected bool canLand = true;
 
+    [Header("Landing")]
+    [SerializeField] private float minimumLandingNormalY = 0.5f;
+
     public bool CanLand => canLand;
 
     protected virtual void OnCollisionEnter2D(Collision2D collision)
@@ -18,19 +21,29 @@ public class Platform : MonoBehaviour
         if (player == null)
             return;
 
-        // 플레이어가 플랫폼의 위쪽에서 내려오는 경우에만 착지
-        if (collision.contacts.Length == 0)
+        // 날아가는 중이 아니면 착지 처리하지 않음
+        if (!player.IsFlying())
             return;
 
-        ContactPoint2D contact = collision.contacts[0];
+        if (collision.contactCount == 0)
+            return;
 
-        if (contact.normal.y > 0.5f)
+        // 여러 접점 중 하나라도 위쪽을 향하고 있으면 착지
+        for (int i = 0; i < collision.contactCount; i++)
         {
-            OnPlayerLanded(player);
+            ContactPoint2D contact =
+                collision.GetContact(i);
+
+            if (contact.normal.y >= minimumLandingNormalY)
+            {
+                OnPlayerLanded(player);
+                return;
+            }
         }
     }
 
-    protected virtual void OnPlayerLanded(PlayerController player)
+    protected virtual void OnPlayerLanded(
+        PlayerController player)
     {
         player.Land();
     }

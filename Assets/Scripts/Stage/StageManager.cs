@@ -26,6 +26,10 @@ public class StageManager : MonoBehaviour
     [Header("Goal")]
     [SerializeField] private float goalHeight = 1.5f;
 
+    [SerializeField] private float startGoalRadius = 3.275f;
+    [SerializeField] private float minimumGoalRadius = 0.8f;
+    [SerializeField] private float goalRadiusDecrease = 0.12f;
+
     [Header("Score")]
     [SerializeField] private int scorePerGoal = 100;
 
@@ -48,7 +52,6 @@ public class StageManager : MonoBehaviour
 
     private Transform stageParent;
 
-    // 마지막으로 생성된 플랫폼 위치
     private Vector2 lastPlatformPosition;
 
     private void Start()
@@ -73,10 +76,19 @@ public class StageManager : MonoBehaviour
     {
         if (stageParent == null)
         {
-            GameObject parentObject =
-                new GameObject("GeneratedStages");
+            CreateStageParent();
+        }
 
-            stageParent = parentObject.transform;
+        if (startPlatformPrefab == null)
+        {
+            Debug.LogError("Start Platform Prefab이 연결되지 않았습니다.");
+            return;
+        }
+
+        if (player == null)
+        {
+            Debug.LogError("Player가 연결되지 않았습니다.");
+            return;
         }
 
         // 시작 플랫폼 생성
@@ -95,12 +107,12 @@ public class StageManager : MonoBehaviour
                 1f
             );
 
-        // 플랫폼의 윗면 계산
+        // 플랫폼 윗면
         float platformTop =
             startPlatformPosition.y +
-            (platformSize.y * 0.5f);
+            platformSize.y * 0.5f;
 
-        // 플레이어 Collider 가져오기
+        // 플레이어 Collider
         Collider2D playerCollider =
             player.GetComponent<Collider2D>();
 
@@ -112,7 +124,7 @@ public class StageManager : MonoBehaviour
                 playerCollider.bounds.extents.y;
         }
 
-        // 플레이어가 플랫폼 위에 딱 올라오도록 배치
+        // 플레이어 시작 위치
         Vector2 playerStartPosition =
             new Vector2(
                 startPlatformPosition.x,
@@ -121,19 +133,14 @@ public class StageManager : MonoBehaviour
                 playerStartOffsetY
             );
 
+        player.SetStartPosition(playerStartPosition);
+
+        lastPlatformPosition =
+            startPlatformPosition;
+
         Debug.Log(
             "Start Platform Position : " +
             startPlatformPosition
-        );
-
-        Debug.Log(
-            "Platform Top : " +
-            platformTop
-        );
-
-        Debug.Log(
-            "Player Half Height : " +
-            playerHalfHeight
         );
 
         Debug.Log(
@@ -141,15 +148,7 @@ public class StageManager : MonoBehaviour
             playerStartPosition
         );
 
-        // Rigidbody2D 위치까지 설정
-        player.SetStartPosition(
-            playerStartPosition
-        );
-
-        lastPlatformPosition =
-            startPlatformPosition;
-
-        // 첫 스테이지 생성
+        // 초기 스테이지 생성
         for (int i = 0;
              i < initialStageCount;
              i++)
@@ -158,8 +157,18 @@ public class StageManager : MonoBehaviour
         }
     }
 
-    public void OnGoalReached()
+    // ==================================================
+    // Goal 도착
+    // ==================================================
+
+    public void OnGoalReached(Vector2 goalPosition)
     {
+        if (player == null)
+            return;
+
+        if (!player.IsFlying())
+            return;
+
         stageCount++;
 
         score += scorePerGoal;
@@ -167,10 +176,31 @@ public class StageManager : MonoBehaviour
         Debug.Log("Stage : " + stageCount);
         Debug.Log("Score : " + score);
 
-        SpawnNextStage();
+        // 현재 비행 종료
+        player.ReachGoal();
 
-        player.ResetReady();
+        // Goal 아래의 새로운 플랫폼 생성
+        Vector2 newPlatformPosition =
+            new Vector2(
+                goalPosition.x,
+                goalPosition.y - goalHeight
+            );
+
+        SpawnPlatform(newPlatformPosition);
+
+        // 새 플랫폼 기준으로 다음 Goal 생성
+        lastPlatformPosition =
+            newPlatformPosition;
+
+        SpawnGoal(newPlatformPosition);
+
+        // 플레이어를 새 플랫폼 위로 이동
+        MovePlayerToPlatform(newPlatformPosition);
     }
+
+    // ==================================================
+    // 다음 스테이지 생성
+    // ==================================================
 
     private void SpawnNextStage()
     {
@@ -199,10 +229,13 @@ public class StageManager : MonoBehaviour
 
         SpawnGoal(nextPosition);
 
-        // 다음 생성의 기준점
         lastPlatformPosition =
             nextPosition;
     }
+
+    // ==================================================
+    // 플랫폼 위치 계산
+    // ==================================================
 
     private Vector2 GetNextPlatformPosition()
     {
@@ -224,6 +257,10 @@ public class StageManager : MonoBehaviour
                    height
                );
     }
+
+    // ==================================================
+    // 플랫폼 생성
+    // ==================================================
 
     private void SpawnPlatform(Vector2 position)
     {
@@ -264,19 +301,95 @@ public class StageManager : MonoBehaviour
             );
     }
 
+    // ==================================================
+    // Goal 생성
+    // ==================================================
+
     private void SpawnGoal(Vector2 platformPosition)
     {
         Vector2 goalPosition =
             platformPosition +
             Vector2.up * goalHeight;
 
-        Instantiate(
-            goalPrefab,
-            goalPosition,
-            Quaternion.identity,
-            stageParent
+        Goal goal =
+            Instantiate(
+                goalPrefab,
+                goalPosition,
+                Quaternion.identity,
+                stageParent
+            );
+
+        // 스테이지가 진행될수록 Goal 범위 감소
+        float radius =
+            Mathf.Max(
+                minimumGoalRadius,
+                startGoalRadius -
+                (stageCount * goalRadiusDecrease)
+            );
+
+        // Goal의 CircleCollider2D 크기 변경
+        CircleCollider2D goalCollider =
+            goal.GetComponent<CircleCollider2D>();
+
+        if (goalCollider != null)
+        {
+            goalCollider.radius = radius;
+
+            Debug.Log(
+                "Goal Radius : " +
+                radius
+            );
+        }
+
+        // Goal Transform 크기도 원형 범위에 맞춤
+        goal.transform.localScale =
+            Vector3.one;
+    }
+
+    // ==================================================
+    // 플레이어를 새 플랫폼 위로 이동
+    // ==================================================
+
+    private void MovePlayerToPlatform(
+        Vector2 platformPosition)
+    {
+        if (player == null)
+            return;
+
+        Collider2D playerCollider =
+            player.GetComponent<Collider2D>();
+
+        float playerHalfHeight = 0.5f;
+
+        if (playerCollider != null)
+        {
+            playerHalfHeight =
+                playerCollider.bounds.extents.y;
+        }
+
+        float platformTop =
+            platformPosition.y +
+            platformSize.y * 0.5f;
+
+        Vector2 playerPosition =
+            new Vector2(
+                platformPosition.x,
+                platformTop +
+                playerHalfHeight +
+                playerStartOffsetY
+            );
+
+        player.MoveToPlatform(playerPosition);
+
+        Debug.Log(
+            "Player moved to platform : " +
+            playerPosition
         );
     }
+
+    // ==================================================
+    // Score
+    // ==================================================
 
     public int GetScore()
     {
@@ -288,10 +401,20 @@ public class StageManager : MonoBehaviour
         return stageCount;
     }
 
+    // ==================================================
+    // Death
+    // ==================================================
+
     private void Update()
     {
         if (player == null)
             return;
+
+        if (player.State ==
+            PlayerController.PlayerState.Dead)
+        {
+            return;
+        }
 
         if (player.transform.position.y < deathY)
         {
@@ -303,7 +426,9 @@ public class StageManager : MonoBehaviour
     {
         if (player.State ==
             PlayerController.PlayerState.Dead)
+        {
             return;
+        }
 
         player.Die();
 

@@ -8,7 +8,6 @@ public class PlayerController : MonoBehaviour
         Aiming,
         Flying,
         Landed,
-        Arrived,
         Dead
     }
 
@@ -34,10 +33,16 @@ public class PlayerController : MonoBehaviour
         State = PlayerState.Ready;
     }
 
+    // --------------------------------------------------
+    // 시작 위치 설정
+    // --------------------------------------------------
+
     public void SetStartPosition(Vector2 position)
     {
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
+
+        rb.constraints = originalConstraints;
 
         rb.position = position;
         transform.position = position;
@@ -47,6 +52,10 @@ public class PlayerController : MonoBehaviour
         State = PlayerState.Ready;
     }
 
+    // --------------------------------------------------
+    // 당기기 시작
+    // --------------------------------------------------
+
     public void StartAiming()
     {
         if (State != PlayerState.Ready &&
@@ -55,11 +64,11 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        // 기존 움직임 제거
+        // 기존 속도 제거
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
 
-        // 당기는 동안 위치와 회전을 완전히 고정
+        // 당기는 동안 플레이어 위치 고정
         rb.constraints =
             originalConstraints |
             RigidbodyConstraints2D.FreezePosition |
@@ -67,6 +76,10 @@ public class PlayerController : MonoBehaviour
 
         State = PlayerState.Aiming;
     }
+
+    // --------------------------------------------------
+    // 발사
+    // --------------------------------------------------
 
     public void Launch(Vector2 velocity)
     {
@@ -91,7 +104,13 @@ public class PlayerController : MonoBehaviour
         rb.linearVelocity = velocity;
 
         State = PlayerState.Flying;
+
+        Debug.Log("Player Launched");
     }
+
+    // --------------------------------------------------
+    // Platform 착지
+    // --------------------------------------------------
 
     public void Land()
     {
@@ -103,15 +122,29 @@ public class PlayerController : MonoBehaviour
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
 
+        // 정상적인 물리 상태 유지
+        rb.constraints = originalConstraints;
+
         State = PlayerState.Landed;
 
         Debug.Log("Player Landed");
     }
 
-    public void Arrive()
+    // --------------------------------------------------
+    // Goal 진입
+    //
+    // 중요:
+    // Goal은 도착해서 멈추는 지점이 아니다.
+    // 다음 발사를 위한 새로운 위치를 만드는 트리거다.
+    //
+    // 따라서 여기서는 플레이어를 얼리지 않는다.
+    // StageManager가 새로운 Platform을 만든 뒤
+    // 필요한 위치에서 Land()를 호출한다.
+    // --------------------------------------------------
+
+    public void ReachGoal()
     {
-        if (State != PlayerState.Flying &&
-            State != PlayerState.Landed)
+        if (State != PlayerState.Flying)
         {
             return;
         }
@@ -119,10 +152,38 @@ public class PlayerController : MonoBehaviour
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
 
-        State = PlayerState.Arrived;
+        rb.constraints = originalConstraints;
 
-        Debug.Log("Player Arrived");
+        Debug.Log("Goal Reached");
     }
+
+    // --------------------------------------------------
+    // 다음 Platform 위치로 이동
+    //
+    // StageManager가 새로운 Platform을 만든 뒤
+    // 플레이어를 해당 위치로 이동시키기 위해 사용.
+    // --------------------------------------------------
+
+    public void MoveToPlatform(Vector2 position)
+    {
+        rb.linearVelocity = Vector2.zero;
+        rb.angularVelocity = 0f;
+
+        rb.constraints = originalConstraints;
+
+        rb.position = position;
+        transform.position = position;
+
+        Physics2D.SyncTransforms();
+
+        State = PlayerState.Landed;
+
+        Debug.Log("Player moved to new platform");
+    }
+
+    // --------------------------------------------------
+    // Ready 상태로 초기화
+    // --------------------------------------------------
 
     public void ResetReady()
     {
@@ -133,6 +194,10 @@ public class PlayerController : MonoBehaviour
 
         State = PlayerState.Ready;
     }
+
+    // --------------------------------------------------
+    // 사망
+    // --------------------------------------------------
 
     public void Die()
     {
@@ -146,8 +211,14 @@ public class PlayerController : MonoBehaviour
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
 
+        rb.constraints = originalConstraints;
+
         Debug.Log("Player Dead");
     }
+
+    // --------------------------------------------------
+    // 현재 조준 가능 여부
+    // --------------------------------------------------
 
     public bool CanAim()
     {
@@ -155,8 +226,21 @@ public class PlayerController : MonoBehaviour
                State == PlayerState.Landed;
     }
 
+    // --------------------------------------------------
+    // 현재 비행 중인지
+    // --------------------------------------------------
+
     public bool IsFlying()
     {
         return State == PlayerState.Flying;
+    }
+
+    // --------------------------------------------------
+    // 현재 착지 상태인지
+    // --------------------------------------------------
+
+    public bool IsLanded()
+    {
+        return State == PlayerState.Landed;
     }
 }

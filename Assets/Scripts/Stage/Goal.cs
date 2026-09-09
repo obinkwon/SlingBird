@@ -15,16 +15,24 @@ public class Goal : MonoBehaviour
         if (player == null)
             return;
 
-        reached = true;
+        if (!player.IsFlying())
+            return;
 
-        player.Arrive();
+        reached = true;
 
         StageManager stageManager =
             FindFirstObjectByType<StageManager>();
 
         if (stageManager != null)
         {
-            stageManager.OnGoalReached();
+            stageManager.OnGoalReached(
+                transform.position
+            );
         }
+    }
+
+    public void ResetGoal()
+    {
+        reached = false;
     }
 }
