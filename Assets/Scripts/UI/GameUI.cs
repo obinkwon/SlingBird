@@ -14,39 +14,61 @@ public class GameUI : MonoBehaviour
     [SerializeField] private Text finalScoreText;
     [SerializeField] private Button restartButton;
 
+    private bool gameOverShown = false;
+
     private void Start()
     {
-        gameOverPanel.SetActive(false);
+        // Game Over 패널 숨기기
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(false);
+        }
 
+        // 재시작 버튼
         if (restartButton != null)
         {
             restartButton.onClick.AddListener(RestartGame);
         }
+
+        UpdateUI();
     }
 
     private void Update()
     {
-        if (stageManager != null && scoreText != null)
-        {
-            scoreText.text =
-                "SCORE : " + stageManager.GetScore();
-        }
+        UpdateUI();
 
-        if (player != null &&
+        // 플레이어 사망 확인
+        if (!gameOverShown &&
+            player != null &&
             player.State == PlayerController.PlayerState.Dead)
         {
             ShowGameOver();
         }
     }
 
-    private void ShowGameOver()
+    private void UpdateUI()
     {
-        if (gameOverPanel.activeSelf)
+        if (stageManager == null)
             return;
 
-        gameOverPanel.SetActive(true);
+        // 점수
+        if (scoreText != null)
+        {
+            scoreText.text =
+                "SCORE : " + stageManager.GetScore();
+        }
+    }
 
-        if (finalScoreText != null)
+    private void ShowGameOver()
+    {
+        gameOverShown = true;
+
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(true);
+        }
+
+        if (finalScoreText != null && stageManager != null)
         {
             finalScoreText.text =
                 "SCORE : " + stageManager.GetScore();

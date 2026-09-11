@@ -10,10 +10,8 @@ public class StageManager : MonoBehaviour
 
     [Header("Start")]
     [SerializeField]
-    private Vector2 startPlatformPosition =
-        new Vector2(0f, -2f);
-
-    [SerializeField] private float playerStartOffset = 0.05f;
+    private Vector2 startPlatformPosition = new Vector2(0f, -1f);
+    [SerializeField] private float playerStartOffset = 0f;
 
     [Header("Stage")]
     [SerializeField] private float minPlatformDistance = 4f;

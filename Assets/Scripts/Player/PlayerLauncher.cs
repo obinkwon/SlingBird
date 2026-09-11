@@ -187,8 +187,7 @@ public class PlayerLauncher : MonoBehaviour
             ClampDragPosition(currentPosition);
 
         Vector2 pullVector =
-            dragStartPosition -
-            currentDragPosition;
+            dragStartPosition - currentDragPosition;
 
         // 너무 조금 당겼으면 발사하지 않음
         if (pullVector.magnitude < 0.15f)
