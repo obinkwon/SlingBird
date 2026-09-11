@@ -40,25 +40,64 @@ public class StageManager : MonoBehaviour
     public int StageCount => stageCount;
     public int Score => score;
 
+    // =========================================================
+    // Start
+    // =========================================================
+
     private void Start()
     {
         InitializeFirstStage();
     }
+
+    // =========================================================
+    // Initialize First Stage
+    // =========================================================
 
     private void InitializeFirstStage()
     {
         stageCount = 0;
         score = 0;
 
+        // =====================================================
         // 시작 플랫폼 생성
+        // =====================================================
+
         currentPlatform =
             SpawnPlatform(startPlatformPosition);
 
         lastPlatformPosition =
             startPlatformPosition;
 
+        // =====================================================
+        // 시작 플랫폼을 PlayerController에 등록
+        // =====================================================
+
+        if (player != null &&
+            currentPlatform != null)
+        {
+            Platform startPlatform =
+                currentPlatform.GetComponent<Platform>();
+
+            if (startPlatform != null)
+            {
+                player.SetCurrentPlatform(
+                    startPlatform
+                );
+            }
+            else
+            {
+                Debug.LogWarning(
+                    "Start Platform에 Platform 컴포넌트가 없습니다."
+                );
+            }
+        }
+
+        // =====================================================
         // 플레이어를 시작 플랫폼 위에 배치
-        if (player != null && currentPlatform != null)
+        // =====================================================
+
+        if (player != null &&
+            currentPlatform != null)
         {
             Collider2D platformCollider =
                 currentPlatform.GetComponent<Collider2D>();
@@ -83,7 +122,9 @@ public class StageManager : MonoBehaviour
                         playerStartOffset
                     );
 
-                player.SetStartPosition(playerPosition);
+                player.SetStartPosition(
+                    playerPosition
+                );
             }
             else
             {
@@ -94,9 +135,16 @@ public class StageManager : MonoBehaviour
             }
         }
 
-        // 시작할 때는 다음 Goal 하나만 생성
+        // =====================================================
+        // 첫 Goal 생성
+        // =====================================================
+
         SpawnNextGoal();
     }
+
+    // =========================================================
+    // Goal Reached
+    // =========================================================
 
     public void OnGoalReached(Vector2 goalPosition)
     {
@@ -106,15 +154,22 @@ public class StageManager : MonoBehaviour
         if (!player.IsFlying())
             return;
 
+        // =====================================================
+        // Score / Stage
+        // =====================================================
+
         stageCount++;
         score += scorePerGoal;
 
-        // 플레이어의 비행 상태 종료
+        // =====================================================
+        // Player의 Flying 상태 종료
+        // =====================================================
+
         player.ReachGoal();
 
-        // ------------------------------------------------
-        // 1. 이전 플랫폼 삭제
-        // ------------------------------------------------
+        // =====================================================
+        // 이전 플랫폼 삭제
+        // =====================================================
 
         if (currentPlatform != null)
         {
@@ -122,9 +177,9 @@ public class StageManager : MonoBehaviour
             currentPlatform = null;
         }
 
-        // ------------------------------------------------
-        // 2. 현재 도착한 Goal 삭제
-        // ------------------------------------------------
+        // =====================================================
+        // 현재 Goal 삭제
+        // =====================================================
 
         if (currentGoal != null)
         {
@@ -132,9 +187,9 @@ public class StageManager : MonoBehaviour
             currentGoal = null;
         }
 
-        // ------------------------------------------------
-        // 3. 방금 도착한 Goal 위치에 플랫폼 생성
-        // ------------------------------------------------
+        // =====================================================
+        // Goal 위치에 새 플랫폼 생성
+        // =====================================================
 
         currentPlatform =
             SpawnPlatform(goalPosition);
@@ -142,19 +197,46 @@ public class StageManager : MonoBehaviour
         lastPlatformPosition =
             goalPosition;
 
-        // ------------------------------------------------
-        // 4. 플레이어를 새 플랫폼 위치로 이동
-        // ------------------------------------------------
+        // =====================================================
+        // 새 플랫폼을 Current Platform으로 등록
+        // =====================================================
+
+        if (player != null &&
+            currentPlatform != null)
+        {
+            Platform newPlatform =
+                currentPlatform.GetComponent<Platform>();
+
+            if (newPlatform != null)
+            {
+                player.SetCurrentPlatform(
+                    newPlatform
+                );
+            }
+            else
+            {
+                Debug.LogWarning(
+                    "New Platform에 Platform 컴포넌트가 없습니다."
+                );
+            }
+        }
+
+        // =====================================================
+        // 플레이어를 새 플랫폼으로 이동
+        // =====================================================
 
         MovePlayerToPlatform(goalPosition);
 
-        // ------------------------------------------------
-        // 5. 다음 Goal만 생성
-        //    다음 플랫폼은 미리 만들지 않는다.
-        // ------------------------------------------------
+        // =====================================================
+        // 다음 Goal 생성
+        // =====================================================
 
         SpawnNextGoal();
     }
+
+    // =========================================================
+    // Spawn Next Goal
+    // =========================================================
 
     private void SpawnNextGoal()
     {
@@ -163,6 +245,10 @@ public class StageManager : MonoBehaviour
 
         SpawnGoal(nextGoalPosition);
     }
+
+    // =========================================================
+    // Get Next Goal Position
+    // =========================================================
 
     private Vector2 GetNextGoalPosition()
     {
@@ -181,7 +267,12 @@ public class StageManager : MonoBehaviour
         return lastPlatformPosition + offset;
     }
 
-    private GameObject SpawnPlatform(Vector2 position)
+    // =========================================================
+    // Spawn Platform
+    // =========================================================
+
+    private GameObject SpawnPlatform(
+        Vector2 position)
     {
         GameObject prefab =
             platformPrefab;
@@ -211,7 +302,12 @@ public class StageManager : MonoBehaviour
         return platform;
     }
 
-    private void SpawnGoal(Vector2 position)
+    // =========================================================
+    // Spawn Goal
+    // =========================================================
+
+    private void SpawnGoal(
+        Vector2 position)
     {
         if (goalPrefab == null)
         {
@@ -229,6 +325,10 @@ public class StageManager : MonoBehaviour
                 Quaternion.identity
             );
 
+        // =====================================================
+        // Goal 크기
+        // =====================================================
+
         float goalRadius =
             Mathf.Max(
                 minimumGoalRadius,
@@ -239,6 +339,10 @@ public class StageManager : MonoBehaviour
         currentGoal.transform.localScale =
             Vector3.one * goalRadius;
 
+        // =====================================================
+        // Goal 초기화
+        // =====================================================
+
         Goal goal =
             currentGoal.GetComponent<Goal>();
 
@@ -248,7 +352,12 @@ public class StageManager : MonoBehaviour
         }
     }
 
-    private void MovePlayerToPlatform(Vector2 position)
+    // =========================================================
+    // Move Player To Platform
+    // =========================================================
+
+    private void MovePlayerToPlatform(
+        Vector2 position)
     {
         if (player == null)
             return;
@@ -290,6 +399,11 @@ public class StageManager : MonoBehaviour
             );
         }
     }
+
+    // =========================================================
+    // Score
+    // =========================================================
+
     public int GetScore()
     {
         return score;

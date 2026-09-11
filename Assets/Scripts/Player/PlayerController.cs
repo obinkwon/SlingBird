@@ -21,6 +21,9 @@ public class PlayerController : MonoBehaviour
 
     private RigidbodyConstraints2D originalConstraints;
 
+    // 현재 플레이어가 서 있는 플랫폼
+    private Platform currentPlatform;
+
     private void Awake()
     {
         if (rb == null)
@@ -28,17 +31,62 @@ public class PlayerController : MonoBehaviour
             rb = GetComponent<Rigidbody2D>();
         }
 
+        if (rb == null)
+        {
+            Debug.LogError(
+                "PlayerController: Rigidbody2D가 없습니다."
+            );
+
+            return;
+        }
+
         originalConstraints = rb.constraints;
 
         State = PlayerState.Ready;
     }
 
-    // --------------------------------------------------
-    // 시작 위치 설정
-    // --------------------------------------------------
+    // =========================================================
+    // Platform
+    // =========================================================
+
+    /// <summary>
+    /// 현재 플레이어가 서 있는 플랫폼을 등록한다.
+    /// </summary>
+    public void SetCurrentPlatform(Platform platform)
+    {
+        currentPlatform = platform;
+
+        if (platform != null)
+        {
+            Debug.Log(
+                $"Current Platform Set: {platform.name}"
+            );
+        }
+        else
+        {
+            Debug.Log(
+                "Current Platform Cleared"
+            );
+        }
+    }
+
+    /// <summary>
+    /// 전달된 플랫폼이 현재 출발/착지 플랫폼인지 확인한다.
+    /// </summary>
+    public bool IsCurrentPlatform(Platform platform)
+    {
+        return currentPlatform == platform;
+    }
+
+    // =========================================================
+    // Position
+    // =========================================================
 
     public void SetStartPosition(Vector2 position)
     {
+        if (rb == null)
+            return;
+
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
 
@@ -52,9 +100,9 @@ public class PlayerController : MonoBehaviour
         State = PlayerState.Ready;
     }
 
-    // --------------------------------------------------
-    // 당기기 시작
-    // --------------------------------------------------
+    // =========================================================
+    // Aiming
+    // =========================================================
 
     public void StartAiming()
     {
@@ -64,9 +112,13 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
+        if (rb == null)
+            return;
+
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
 
+        // 조준 중에는 플레이어 이동을 완전히 막는다.
         rb.constraints =
             originalConstraints |
             RigidbodyConstraints2D.FreezePosition |
@@ -77,9 +129,9 @@ public class PlayerController : MonoBehaviour
         Debug.Log("Player Aiming");
     }
 
-    // --------------------------------------------------
-    // 발사
-    // --------------------------------------------------
+    // =========================================================
+    // Launch
+    // =========================================================
 
     public void Launch(Vector2 velocity)
     {
@@ -92,7 +144,10 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        // 물리 고정 해제
+        if (rb == null)
+            return;
+
+        // 조준 중 걸어둔 Freeze 해제
         rb.constraints = originalConstraints;
 
         rb.angularVelocity = 0f;
@@ -104,7 +159,7 @@ public class PlayerController : MonoBehaviour
                 maxSpeed
             );
 
-        // 발사 속도 적용
+        // 실제 발사
         rb.linearVelocity = velocity;
 
         State = PlayerState.Flying;
@@ -114,9 +169,9 @@ public class PlayerController : MonoBehaviour
         );
     }
 
-    // --------------------------------------------------
-    // Platform 착지
-    // --------------------------------------------------
+    // =========================================================
+    // Land
+    // =========================================================
 
     public void Land()
     {
@@ -124,6 +179,9 @@ public class PlayerController : MonoBehaviour
         {
             return;
         }
+
+        if (rb == null)
+            return;
 
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
@@ -135,15 +193,9 @@ public class PlayerController : MonoBehaviour
         Debug.Log("Player Landed");
     }
 
-    // --------------------------------------------------
-    // Goal 진입
-    //
-    // Goal은 도착해서 즉시 멈추는 지점이 아니다.
-    // StageManager가 다음 Platform을 만든 뒤
-    // MoveToPlatform()을 호출한다.
-    //
-    // 따라서 여기서는 velocity를 0으로 만들지 않는다.
-    // --------------------------------------------------
+    // =========================================================
+    // Goal
+    // =========================================================
 
     public void ReachGoal()
     {
@@ -152,21 +204,26 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        Debug.Log(
-            $"Goal Reached | Current Velocity: {rb.linearVelocity}"
-        );
+        if (rb != null)
+        {
+            Debug.Log(
+                $"Goal Reached | Current Velocity: {rb.linearVelocity}"
+            );
+        }
 
-        // 여기서는 속도를 건드리지 않는다.
-        // StageManager가 다음 위치를 결정한 뒤
-        // MoveToPlatform()을 호출한다.
+        // 여기서는 속도를 0으로 만들지 않는다.
+        // StageManager가 새 플랫폼으로 이동시킨다.
     }
 
-    // --------------------------------------------------
-    // 다음 Platform 위치로 이동
-    // --------------------------------------------------
+    // =========================================================
+    // Move To New Platform
+    // =========================================================
 
     public void MoveToPlatform(Vector2 position)
     {
+        if (rb == null)
+            return;
+
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
 
@@ -184,12 +241,15 @@ public class PlayerController : MonoBehaviour
         );
     }
 
-    // --------------------------------------------------
-    // Ready 상태로 초기화
-    // --------------------------------------------------
+    // =========================================================
+    // Reset
+    // =========================================================
 
     public void ResetReady()
     {
+        if (rb == null)
+            return;
+
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
 
@@ -200,9 +260,9 @@ public class PlayerController : MonoBehaviour
         Debug.Log("Player Reset Ready");
     }
 
-    // --------------------------------------------------
-    // 사망
-    // --------------------------------------------------
+    // =========================================================
+    // Death
+    // =========================================================
 
     public void Die()
     {
@@ -213,17 +273,20 @@ public class PlayerController : MonoBehaviour
 
         State = PlayerState.Dead;
 
-        rb.linearVelocity = Vector2.zero;
-        rb.angularVelocity = 0f;
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+            rb.angularVelocity = 0f;
 
-        rb.constraints = originalConstraints;
+            rb.constraints = originalConstraints;
+        }
 
         Debug.Log("Player Dead");
     }
 
-    // --------------------------------------------------
-    // 현재 조준 가능 여부
-    // --------------------------------------------------
+    // =========================================================
+    // State
+    // =========================================================
 
     public bool CanAim()
     {
@@ -231,18 +294,10 @@ public class PlayerController : MonoBehaviour
                State == PlayerState.Landed;
     }
 
-    // --------------------------------------------------
-    // 현재 비행 중인지
-    // --------------------------------------------------
-
     public bool IsFlying()
     {
         return State == PlayerState.Flying;
     }
-
-    // --------------------------------------------------
-    // 현재 착지 상태인지
-    // --------------------------------------------------
 
     public bool IsLanded()
     {

@@ -204,9 +204,10 @@ public class PlayerLauncher : MonoBehaviour
             return;
         }
 
-        Vector2 velocity =
-            pullVector *
-            launchPower;
+        Vector2 velocity = pullVector * launchPower;
+        Debug.Log(
+            $"Pull: {pullVector} / Velocity: {velocity}"
+        );
 
         // 플레이어를 원래 위치로 복귀
         ResetPlayerPosition();
