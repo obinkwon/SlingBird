@@ -17,12 +17,18 @@ public class PlayerController : MonoBehaviour
     [Header("Movement")]
     [SerializeField] private float maxSpeed = 15f;
 
+    [Header("Launch Collision")]
+    [SerializeField] private float launchIgnoreCollisionTime = 0.15f;
+
     public PlayerState State { get; private set; }
 
     private RigidbodyConstraints2D originalConstraints;
 
-    // 현재 플레이어가 서 있는 플랫폼
     private Platform currentPlatform;
+
+    private Collider2D playerCollider;
+
+    private Collider2D ignoredPlatformCollider;
 
     private void Awake()
     {
@@ -30,6 +36,9 @@ public class PlayerController : MonoBehaviour
         {
             rb = GetComponent<Rigidbody2D>();
         }
+
+        playerCollider =
+            GetComponent<Collider2D>();
 
         if (rb == null)
         {
@@ -40,7 +49,15 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        originalConstraints = rb.constraints;
+        if (playerCollider == null)
+        {
+            Debug.LogError(
+                "PlayerController: Collider2D가 없습니다."
+            );
+        }
+
+        originalConstraints =
+            rb.constraints;
 
         State = PlayerState.Ready;
     }
@@ -49,10 +66,8 @@ public class PlayerController : MonoBehaviour
     // Platform
     // =========================================================
 
-    /// <summary>
-    /// 현재 플레이어가 서 있는 플랫폼을 등록한다.
-    /// </summary>
-    public void SetCurrentPlatform(Platform platform)
+    public void SetCurrentPlatform(
+        Platform platform)
     {
         currentPlatform = platform;
 
@@ -70,10 +85,8 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 전달된 플랫폼이 현재 출발/착지 플랫폼인지 확인한다.
-    /// </summary>
-    public bool IsCurrentPlatform(Platform platform)
+    public bool IsCurrentPlatform(
+        Platform platform)
     {
         return currentPlatform == platform;
     }
@@ -82,22 +95,29 @@ public class PlayerController : MonoBehaviour
     // Position
     // =========================================================
 
-    public void SetStartPosition(Vector2 position)
+    public void SetStartPosition(
+        Vector2 position)
     {
         if (rb == null)
             return;
 
-        rb.linearVelocity = Vector2.zero;
+        rb.linearVelocity =
+            Vector2.zero;
+
         rb.angularVelocity = 0f;
 
-        rb.constraints = originalConstraints;
+        rb.constraints =
+            originalConstraints;
 
         rb.position = position;
-        transform.position = position;
+
+        transform.position =
+            position;
 
         Physics2D.SyncTransforms();
 
-        State = PlayerState.Ready;
+        State =
+            PlayerState.Ready;
     }
 
     // =========================================================
@@ -115,25 +135,30 @@ public class PlayerController : MonoBehaviour
         if (rb == null)
             return;
 
-        rb.linearVelocity = Vector2.zero;
+        rb.linearVelocity =
+            Vector2.zero;
+
         rb.angularVelocity = 0f;
 
-        // 조준 중에는 플레이어 이동을 완전히 막는다.
         rb.constraints =
             originalConstraints |
             RigidbodyConstraints2D.FreezePosition |
             RigidbodyConstraints2D.FreezeRotation;
 
-        State = PlayerState.Aiming;
+        State =
+            PlayerState.Aiming;
 
-        Debug.Log("Player Aiming");
+        Debug.Log(
+            "Player Aiming"
+        );
     }
 
     // =========================================================
     // Launch
     // =========================================================
 
-    public void Launch(Vector2 velocity)
+    public void Launch(
+        Vector2 velocity)
     {
         if (State != PlayerState.Aiming)
         {
@@ -147,26 +172,116 @@ public class PlayerController : MonoBehaviour
         if (rb == null)
             return;
 
-        // 조준 중 걸어둔 Freeze 해제
-        rb.constraints = originalConstraints;
+        // -----------------------------------------------------
+        // 조준 중 Freeze 해제
+        // -----------------------------------------------------
+
+        rb.constraints =
+            originalConstraints;
 
         rb.angularVelocity = 0f;
 
-        // 최대 속도 제한
+        // -----------------------------------------------------
+        // 현재 플랫폼과의 충돌 무시
+        // -----------------------------------------------------
+
+        IgnoreCurrentPlatformCollision();
+
+        // -----------------------------------------------------
+        // 발사 속도
+        // -----------------------------------------------------
+
         velocity =
             Vector2.ClampMagnitude(
                 velocity,
                 maxSpeed
             );
 
-        // 실제 발사
-        rb.linearVelocity = velocity;
+        rb.linearVelocity =
+            velocity;
 
-        State = PlayerState.Flying;
+        State =
+            PlayerState.Flying;
 
         Debug.Log(
             $"Player Launched | Velocity: {rb.linearVelocity}"
         );
+
+        // -----------------------------------------------------
+        // 디버그
+        // -----------------------------------------------------
+
+        Invoke(
+            nameof(DebugVelocity),
+            0.1f
+        );
+    }
+
+    // =========================================================
+    // Ignore Current Platform
+    // =========================================================
+
+    private void IgnoreCurrentPlatformCollision()
+    {
+        if (playerCollider == null)
+            return;
+
+        if (currentPlatform == null)
+            return;
+
+        Collider2D platformCollider =
+            currentPlatform.GetComponent<Collider2D>();
+
+        if (platformCollider == null)
+            return;
+
+        Physics2D.IgnoreCollision(
+            playerCollider,
+            platformCollider,
+            true
+        );
+
+        ignoredPlatformCollider =
+            platformCollider;
+
+        Debug.Log(
+            $"Ignore Platform Collision: {currentPlatform.name}"
+        );
+
+        CancelInvoke(
+            nameof(RestorePlatformCollision)
+        );
+
+        Invoke(
+            nameof(RestorePlatformCollision),
+            launchIgnoreCollisionTime
+        );
+    }
+
+    // =========================================================
+    // Restore Platform Collision
+    // =========================================================
+
+    private void RestorePlatformCollision()
+    {
+        if (playerCollider == null)
+            return;
+
+        if (ignoredPlatformCollider == null)
+            return;
+
+        Physics2D.IgnoreCollision(
+            playerCollider,
+            ignoredPlatformCollider,
+            false
+        );
+
+        Debug.Log(
+            "Platform Collision Restored"
+        );
+
+        ignoredPlatformCollider =
+            null;
     }
 
     // =========================================================
@@ -183,14 +298,20 @@ public class PlayerController : MonoBehaviour
         if (rb == null)
             return;
 
-        rb.linearVelocity = Vector2.zero;
+        rb.linearVelocity =
+            Vector2.zero;
+
         rb.angularVelocity = 0f;
 
-        rb.constraints = originalConstraints;
+        rb.constraints =
+            originalConstraints;
 
-        State = PlayerState.Landed;
+        State =
+            PlayerState.Landed;
 
-        Debug.Log("Player Landed");
+        Debug.Log(
+            "Player Landed"
+        );
     }
 
     // =========================================================
@@ -210,31 +331,39 @@ public class PlayerController : MonoBehaviour
                 $"Goal Reached | Current Velocity: {rb.linearVelocity}"
             );
         }
-
-        // 여기서는 속도를 0으로 만들지 않는다.
-        // StageManager가 새 플랫폼으로 이동시킨다.
     }
 
     // =========================================================
-    // Move To New Platform
+    // Move To Platform
     // =========================================================
 
-    public void MoveToPlatform(Vector2 position)
+    public void MoveToPlatform(
+        Vector2 position)
     {
         if (rb == null)
             return;
 
-        rb.linearVelocity = Vector2.zero;
+        // 혹시 이전 플랫폼 충돌 무시가 남아 있다면 복구
+        RestorePlatformCollision();
+
+        rb.linearVelocity =
+            Vector2.zero;
+
         rb.angularVelocity = 0f;
 
-        rb.constraints = originalConstraints;
+        rb.constraints =
+            originalConstraints;
 
-        rb.position = position;
-        transform.position = position;
+        rb.position =
+            position;
+
+        transform.position =
+            position;
 
         Physics2D.SyncTransforms();
 
-        State = PlayerState.Landed;
+        State =
+            PlayerState.Landed;
 
         Debug.Log(
             $"Player moved to new platform: {position}"
@@ -247,17 +376,25 @@ public class PlayerController : MonoBehaviour
 
     public void ResetReady()
     {
+        RestorePlatformCollision();
+
         if (rb == null)
             return;
 
-        rb.linearVelocity = Vector2.zero;
+        rb.linearVelocity =
+            Vector2.zero;
+
         rb.angularVelocity = 0f;
 
-        rb.constraints = originalConstraints;
+        rb.constraints =
+            originalConstraints;
 
-        State = PlayerState.Ready;
+        State =
+            PlayerState.Ready;
 
-        Debug.Log("Player Reset Ready");
+        Debug.Log(
+            "Player Reset Ready"
+        );
     }
 
     // =========================================================
@@ -271,17 +408,25 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        State = PlayerState.Dead;
+        State =
+            PlayerState.Dead;
+
+        RestorePlatformCollision();
 
         if (rb != null)
         {
-            rb.linearVelocity = Vector2.zero;
+            rb.linearVelocity =
+                Vector2.zero;
+
             rb.angularVelocity = 0f;
 
-            rb.constraints = originalConstraints;
+            rb.constraints =
+                originalConstraints;
         }
 
-        Debug.Log("Player Dead");
+        Debug.Log(
+            "Player Dead"
+        );
     }
 
     // =========================================================
@@ -296,11 +441,30 @@ public class PlayerController : MonoBehaviour
 
     public bool IsFlying()
     {
-        return State == PlayerState.Flying;
+        return State ==
+               PlayerState.Flying;
     }
 
     public bool IsLanded()
     {
-        return State == PlayerState.Landed;
+        return State ==
+               PlayerState.Landed;
+    }
+
+    // =========================================================
+    // Debug
+    // =========================================================
+
+    private void DebugVelocity()
+    {
+        if (rb == null)
+            return;
+
+        Debug.Log(
+            $"[0.1s AFTER LAUNCH] " +
+            $"Velocity: {rb.linearVelocity} | " +
+            $"Position: {rb.position} | " +
+            $"Constraints: {rb.constraints}"
+        );
     }
 }
