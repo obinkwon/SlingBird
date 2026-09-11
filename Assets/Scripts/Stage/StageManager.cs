@@ -18,8 +18,12 @@ public class StageManager : MonoBehaviour
     [Header("Stage")]
     [SerializeField] private float minPlatformDistance = 4f;
     [SerializeField] private float maxPlatformDistance = 6f;
+
     [SerializeField] private float minVerticalDistance = 1.5f;
     [SerializeField] private float maxVerticalDistance = 3.5f;
+
+    [SerializeField] private float distanceIncreasePerStage = 0.15f;
+    [SerializeField] private float maxDistanceIncrease = 3f;
 
     [Header("Goal")]
     [SerializeField] private float initialGoalRadius = 3.275f;
@@ -28,6 +32,13 @@ public class StageManager : MonoBehaviour
 
     [Header("Score")]
     [SerializeField] private int scorePerGoal = 100;
+
+    [Header("Goal Reachability")]
+    [SerializeField] private float launchSimulationTimeStep = 0.05f;
+    [SerializeField] private float launchSimulationMaxTime = 3f;
+    [SerializeField] private float goalReachTolerance = 0.5f;
+
+    [SerializeField] private int maxGoalGenerationAttempts = 30;
 
     private GameObject currentPlatform;
     private GameObject currentGoal;
@@ -252,19 +263,53 @@ public class StageManager : MonoBehaviour
 
     private Vector2 GetNextGoalPosition()
     {
-        float distance =
-            Random.Range(
-                minPlatformDistance,
-                maxPlatformDistance
+        float distanceIncrease =
+            Mathf.Min(
+                stageCount * distanceIncreasePerStage,
+                maxDistanceIncrease
             );
 
-        Vector2 offset =
-            new Vector2(
-                distance,
-                0f
-            );
+        for (int attempt = 0;
+             attempt < maxGoalGenerationAttempts;
+             attempt++)
+        {
+            float horizontalDistance =
+                Random.Range(
+                    minPlatformDistance + distanceIncrease,
+                    maxPlatformDistance + distanceIncrease
+                );
 
-        return lastPlatformPosition + offset;
+            float verticalDistance =
+                Random.Range(
+                    minVerticalDistance,
+                    maxVerticalDistance
+                );
+
+            if (Random.value < 0.5f)
+            {
+                verticalDistance *= -1f;
+            }
+
+            Vector2 candidate =
+                lastPlatformPosition +
+                new Vector2(
+                    horizontalDistance,
+                    verticalDistance
+                );
+
+            if (CanReachGoal(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        // 안전장치
+        // 아무 위치도 못 찾았으면 기본 위치 반환
+        return lastPlatformPosition +
+               new Vector2(
+                   minPlatformDistance,
+                   0f
+               );
     }
 
     // =========================================================
@@ -407,5 +452,108 @@ public class StageManager : MonoBehaviour
     public int GetScore()
     {
         return score;
+    }
+
+    private bool CanReachGoal(Vector2 goalPosition)
+    {
+        if (player == null)
+            return true;
+
+        Rigidbody2D playerRb =
+            player.GetComponent<Rigidbody2D>();
+
+        if (playerRb == null)
+            return true;
+
+        Vector2 startPosition =
+            lastPlatformPosition;
+
+        Vector2 direction =
+            goalPosition - startPosition;
+
+        float distance =
+            direction.magnitude;
+
+        if (distance <= 0.01f)
+            return false;
+
+        float gravity =
+            Physics2D.gravity.y *
+            playerRb.gravityScale;
+
+        float maxSpeed = 15f;
+
+        // 여러 발사 각도를 테스트
+        for (float angle = 15f;
+             angle <= 75f;
+             angle += 5f)
+        {
+            float radians =
+                angle * Mathf.Deg2Rad;
+
+            Vector2 velocity =
+                new Vector2(
+                    Mathf.Cos(radians),
+                    Mathf.Sin(radians)
+                ) * maxSpeed;
+
+            // 목표가 플레이어보다 아래에 있다면
+            // 아래쪽 각도도 검사
+            if (goalPosition.y < startPosition.y)
+            {
+                velocity.y =
+                    -Mathf.Abs(velocity.y);
+            }
+
+            if (CanReachWithVelocity(
+                startPosition,
+                goalPosition,
+                velocity,
+                gravity))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool CanReachWithVelocity(
+    Vector2 startPosition,
+    Vector2 goalPosition,
+    Vector2 velocity,
+    float gravity)
+    {
+        Vector2 position =
+            startPosition;
+
+        float time = 0f;
+
+        while (time <= launchSimulationMaxTime)
+        {
+            position +=
+                velocity *
+                launchSimulationTimeStep;
+
+            velocity.y +=
+                gravity *
+                launchSimulationTimeStep;
+
+            float distance =
+                Vector2.Distance(
+                    position,
+                    goalPosition
+                );
+
+            if (distance <= goalReachTolerance)
+            {
+                return true;
+            }
+
+            time +=
+                launchSimulationTimeStep;
+        }
+
+        return false;
     }
 }
