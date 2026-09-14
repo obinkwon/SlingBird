@@ -44,6 +44,17 @@ public class PlayerLauncher : MonoBehaviour
             mainCamera = Camera.main;
         }
 
+        // Aim Line / Trajectory Line Order 설정
+        if (aimLine != null)
+        {
+            aimLine.sortingOrder = 1;
+        }
+
+        if (trajectoryLine != null)
+        {
+            trajectoryLine.sortingOrder = 1;
+        }
+
         HideAim();
     }
 

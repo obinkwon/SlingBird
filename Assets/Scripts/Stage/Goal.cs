@@ -4,6 +4,16 @@ public class Goal : MonoBehaviour
 {
     private bool reached;
 
+    private void Awake()
+    {
+        SpriteRenderer spriteRenderer = GetComponent<SpriteRenderer>();
+
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.sortingOrder = 1;
+        }
+    }
+
     private void OnTriggerEnter2D(Collider2D collision)
     {
         if (reached)
