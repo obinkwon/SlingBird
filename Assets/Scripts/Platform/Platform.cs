@@ -15,6 +15,10 @@ public class Platform : MonoBehaviour
 
     private void Awake()
     {
+        // Platform을 정사각형 크기로 설정
+        transform.localScale = new Vector3(1f, 1f, 1f);
+
+        // Order in Layer 설정
         SpriteRenderer spriteRenderer =
             GetComponent<SpriteRenderer>();
 
