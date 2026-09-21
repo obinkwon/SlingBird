@@ -11,6 +11,7 @@ public class PlayerLauncher : MonoBehaviour
     [Header("Launch Settings")]
     [SerializeField] private float launchPower = 8f;
     [SerializeField] private float maxDragDistance = 2.5f;
+    [SerializeField] private float minPullDistance = 0.15f;
 
     [Header("Aim Settings")]
     [SerializeField] private float playerClickRadius = 1f;
@@ -26,34 +27,28 @@ public class PlayerLauncher : MonoBehaviour
     private bool isDragging;
     private Vector2 dragStartPosition;
     private Vector2 currentDragPosition;
+    private Vector3[] trajectoryPoints;
+
+    // --------------------------------------------------
+    // Unity
+    // --------------------------------------------------
 
     private void Awake()
     {
         if (player == null)
-        {
             player = GetComponent<PlayerController>();
-        }
 
         if (rb == null)
-        {
             rb = GetComponent<Rigidbody2D>();
-        }
 
         if (mainCamera == null)
-        {
             mainCamera = Camera.main;
-        }
 
-        // Aim Line / Trajectory Line Order 설정
         if (aimLine != null)
-        {
             aimLine.sortingOrder = 1;
-        }
 
         if (trajectoryLine != null)
-        {
             trajectoryLine.sortingOrder = 1;
-        }
 
         HideAim();
     }
@@ -61,196 +56,128 @@ public class PlayerLauncher : MonoBehaviour
     private void Update()
     {
         if (player == null)
+            return;
+
+        // 드래그 중에 플레이어 상태가 외부에서 바뀌면(사망 등) 조준 취소
+        if (isDragging && player.State != PlayerController.PlayerState.Aiming)
         {
+            isDragging = false;
+            HideAim();
             return;
         }
 
         // 드래그 중이 아닐 때만 CanAim 검사
         if (!isDragging && !player.CanAim())
-        {
             return;
-        }
 
         HandleInput();
     }
 
     // --------------------------------------------------
-    // Input
+    // Input (마우스 + 터치 공용)
     // --------------------------------------------------
 
     private void HandleInput()
     {
-        if (Mouse.current == null)
-        {
+        Pointer pointer = Pointer.current;
+
+        if (pointer == null)
             return;
-        }
 
-        // 클릭 시작
-        if (Mouse.current.leftButton.wasPressedThisFrame)
-        {
-            StartDrag(
-                Mouse.current.position.ReadValue()
-            );
-        }
+        Vector2 screenPosition = pointer.position.ReadValue();
 
-        // 드래그 중
-        if (Mouse.current.leftButton.isPressed &&
-            isDragging)
-        {
-            UpdateDrag(
-                Mouse.current.position.ReadValue()
-            );
-        }
+        if (pointer.press.wasPressedThisFrame)
+            StartDrag(screenPosition);
 
-        // 클릭 해제
-        if (Mouse.current.leftButton.wasReleasedThisFrame &&
-            isDragging)
-        {
-            EndDrag(
-                Mouse.current.position.ReadValue()
-            );
-        }
+        if (pointer.press.isPressed && isDragging)
+            UpdateDrag(screenPosition);
+
+        if (pointer.press.wasReleasedThisFrame && isDragging)
+            EndDrag(screenPosition);
     }
 
     // --------------------------------------------------
-    // Start Drag
+    // Drag
     // --------------------------------------------------
 
     private void StartDrag(Vector2 screenPosition)
     {
-        Vector2 worldPosition =
-            GetWorldPosition(screenPosition);
+        Vector2 worldPosition = GetWorldPosition(screenPosition);
+        Vector2 playerPosition = GetPlayerPosition();
 
-        Vector2 playerPosition =
-            rb != null
-                ? rb.position
-                : (Vector2)transform.position;
-
-        float distance =
-            Vector2.Distance(
-                worldPosition,
-                playerPosition
-            );
-
-        if (distance > playerClickRadius)
-        {
+        if (Vector2.Distance(worldPosition, playerPosition) > playerClickRadius)
             return;
-        }
-
-        dragStartPosition =
-            playerPosition;
-
-        currentDragPosition =
-            dragStartPosition;
-
-        isDragging = true;
 
         player.StartAiming();
 
+        // StartAiming이 거부된 경우(상태 불일치) 드래그 시작 안 함
+        if (player.State != PlayerController.PlayerState.Aiming)
+            return;
+
+        dragStartPosition = playerPosition;
+        currentDragPosition = dragStartPosition;
+        isDragging = true;
+
         ShowAim();
-
         DrawAim();
-
-        Debug.Log(
-            $"Start Drag | Position: {dragStartPosition}"
-        );
     }
-
-    // --------------------------------------------------
-    // Update Drag
-    // --------------------------------------------------
 
     private void UpdateDrag(Vector2 screenPosition)
     {
-        Vector2 currentPosition =
-            GetWorldPosition(screenPosition);
-
-        currentDragPosition =
-            ClampDragPosition(currentPosition);
+        currentDragPosition = ClampDragPosition(GetWorldPosition(screenPosition));
 
         // 조준 중에는 플레이어를 실제로 이동
-        if (rb != null)
-        {
-            rb.position =
-                currentDragPosition;
-        }
-        else
-        {
-            transform.position =
-                currentDragPosition;
-        }
+        SetPlayerPosition(currentDragPosition);
 
         DrawAim();
     }
-
-    // --------------------------------------------------
-    // End Drag
-    // --------------------------------------------------
 
     private void EndDrag(Vector2 screenPosition)
     {
         isDragging = false;
 
-        Vector2 currentPosition =
-            GetWorldPosition(screenPosition);
+        currentDragPosition = ClampDragPosition(GetWorldPosition(screenPosition));
 
-        currentDragPosition =
-            ClampDragPosition(currentPosition);
-
-        Vector2 pullVector =
-            dragStartPosition - currentDragPosition;
+        Vector2 pullVector = dragStartPosition - currentDragPosition;
 
         // 너무 조금 당겼으면 발사하지 않음
-        if (pullVector.magnitude < 0.15f)
+        if (pullVector.magnitude < minPullDistance)
         {
-            ResetPlayerPosition();
-
+            SetPlayerPosition(dragStartPosition);
             player.ResetReady();
-
             HideAim();
-
-            Debug.Log("Drag cancelled - too short");
-
             return;
         }
 
-        Vector2 velocity = pullVector * launchPower;
-        Debug.Log(
-            $"Pull: {pullVector} / Velocity: {velocity}"
-        );
+        // 궤적과 실제 발사가 같은 계산을 쓰도록 먼저 속도를 구함
+        Vector2 velocity = CalculateLaunchVelocity();
 
-        // 플레이어를 원래 위치로 복귀
-        ResetPlayerPosition();
-
+        // 플레이어를 원래 위치로 복귀 후 발사
+        SetPlayerPosition(dragStartPosition);
         HideAim();
 
-        Debug.Log(
-            $"End Drag | Pull: {pullVector} | Velocity: {velocity}"
-        );
-
-        // 실제 발사
         player.Launch(velocity);
     }
 
-    // --------------------------------------------------
-    // Clamp
-    // --------------------------------------------------
-
     private Vector2 ClampDragPosition(Vector2 position)
     {
-        Vector2 offset =
-            position -
-            dragStartPosition;
+        Vector2 offset = position - dragStartPosition;
 
-        if (offset.magnitude >
-            maxDragDistance)
-        {
-            offset =
-                offset.normalized *
-                maxDragDistance;
-        }
+        if (offset.magnitude > maxDragDistance)
+            offset = offset.normalized * maxDragDistance;
 
         return dragStartPosition + offset;
+    }
+
+    // --------------------------------------------------
+    // Launch Velocity (발사 / 궤적 공용)
+    // --------------------------------------------------
+
+    private Vector2 CalculateLaunchVelocity()
+    {
+        Vector2 pullVector = dragStartPosition - currentDragPosition;
+
+        return Vector2.ClampMagnitude(pullVector * launchPower, player.MaxSpeed);
     }
 
     // --------------------------------------------------
@@ -262,149 +189,91 @@ public class PlayerLauncher : MonoBehaviour
         if (aimLine != null)
         {
             aimLine.positionCount = 2;
-
-            aimLine.SetPosition(
-                0,
-                dragStartPosition
-            );
-
-            aimLine.SetPosition(
-                1,
-                currentDragPosition
-            );
+            aimLine.SetPosition(0, dragStartPosition);
+            aimLine.SetPosition(1, currentDragPosition);
         }
 
         DrawTrajectory();
     }
 
-    // --------------------------------------------------
-    // Trajectory
-    // --------------------------------------------------
-
     private void DrawTrajectory()
     {
-        if (trajectoryLine == null ||
-            rb == null)
-        {
+        if (trajectoryLine == null || rb == null)
             return;
-        }
 
-        Vector2 pullVector =
-            dragStartPosition -
-            currentDragPosition;
+        Vector2 velocity = CalculateLaunchVelocity();
+        Vector2 gravity = Physics2D.gravity * rb.gravityScale;
 
-        Vector2 velocity =
-            pullVector *
-            launchPower;
+        if (trajectoryPoints == null || trajectoryPoints.Length != trajectoryPointCount)
+            trajectoryPoints = new Vector3[trajectoryPointCount];
 
-        // 실제 발사 속도와 동일하게 제한
-        velocity =
-            Vector2.ClampMagnitude(
-                velocity,
-                15f
-            );
-
-        trajectoryLine.positionCount =
-            trajectoryPointCount;
-
-        Vector2 gravity =
-            Physics2D.gravity *
-            rb.gravityScale;
-
-        for (int i = 0;
-             i < trajectoryPointCount;
-             i++)
+        for (int i = 0; i < trajectoryPointCount; i++)
         {
-            float time =
-                i * trajectoryTimeStep;
+            float t = i * trajectoryTimeStep;
 
-            Vector2 position =
+            trajectoryPoints[i] =
                 dragStartPosition +
-                velocity * time +
-                0.5f *
-                gravity *
-                time *
-                time;
-
-            trajectoryLine.SetPosition(
-                i,
-                position
-            );
+                velocity * t +
+                0.5f * gravity * t * t;
         }
+
+        trajectoryLine.positionCount = trajectoryPointCount;
+        trajectoryLine.SetPositions(trajectoryPoints);
+    }
+
+    private void ShowAim()
+    {
+        if (aimLine != null)
+            aimLine.enabled = true;
+
+        if (trajectoryLine != null)
+            trajectoryLine.enabled = true;
+    }
+
+    private void HideAim()
+    {
+        if (aimLine != null)
+            aimLine.enabled = false;
+
+        if (trajectoryLine != null)
+            trajectoryLine.enabled = false;
     }
 
     // --------------------------------------------------
     // Player Position
     // --------------------------------------------------
 
-    private void ResetPlayerPosition()
+    private Vector2 GetPlayerPosition()
+    {
+        return rb != null ? rb.position : (Vector2)transform.position;
+    }
+
+    private void SetPlayerPosition(Vector2 position)
     {
         if (rb != null)
-        {
-            rb.position =
-                dragStartPosition;
-        }
+            rb.position = position;
         else
-        {
-            transform.position =
-                dragStartPosition;
-        }
+            transform.position = position;
     }
 
     // --------------------------------------------------
     // World Position
     // --------------------------------------------------
 
-    private Vector2 GetWorldPosition(
-        Vector2 screenPosition)
+    private Vector2 GetWorldPosition(Vector2 screenPosition)
     {
         if (mainCamera == null)
-        {
             return transform.position;
-        }
 
-        Vector3 worldPosition =
-            mainCamera.ScreenToWorldPoint(
-                new Vector3(
-                    screenPosition.x,
-                    screenPosition.y,
-                    Mathf.Abs(
-                        mainCamera.transform.position.z
-                    )
-                )
-            );
+        Vector3 worldPosition = mainCamera.ScreenToWorldPoint(
+            new Vector3(
+                screenPosition.x,
+                screenPosition.y,
+                Mathf.Abs(mainCamera.transform.position.z)
+            )
+        );
 
         return worldPosition;
-    }
-
-    // --------------------------------------------------
-    // Aim Visibility
-    // --------------------------------------------------
-
-    private void ShowAim()
-    {
-        if (aimLine != null)
-        {
-            aimLine.enabled = true;
-        }
-
-        if (trajectoryLine != null)
-        {
-            trajectoryLine.enabled = true;
-        }
-    }
-
-    private void HideAim()
-    {
-        if (aimLine != null)
-        {
-            aimLine.enabled = false;
-        }
-
-        if (trajectoryLine != null)
-        {
-            trajectoryLine.enabled = false;
-        }
     }
 
     // --------------------------------------------------
@@ -418,11 +287,9 @@ public class PlayerLauncher : MonoBehaviour
         HideAim();
 
         if (player != null &&
-            player.State ==
-            PlayerController.PlayerState.Aiming)
+            player.State == PlayerController.PlayerState.Aiming)
         {
-            ResetPlayerPosition();
-
+            SetPlayerPosition(dragStartPosition);
             player.ResetReady();
         }
     }
