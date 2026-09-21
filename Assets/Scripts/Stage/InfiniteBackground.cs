@@ -1,174 +1,268 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// 카메라의 상하좌우 이동에 맞춰 배경 타일을 격자로 재활용하는 무한 스크롤 배경.
+/// 원본 오브젝트에만 이 스크립트를 붙이면 됩니다.
+/// (가로모드 고정 / 캐릭터가 사방으로 이동하는 게임용)
+/// </summary>
+[RequireComponent(typeof(SpriteRenderer))]
 public class InfiniteBackground : MonoBehaviour
 {
     [Header("Camera")]
-    [SerializeField] private Transform cameraTransform;
+    [Tooltip("비워두면 Main Camera를 자동으로 사용합니다.")]
+    [SerializeField] private Camera targetCamera;
+
+    [Header("Scroll Axis")]
+    [SerializeField] private bool scrollHorizontal = true;
+    [SerializeField] private bool scrollVertical = true;
 
     [Header("Background")]
-    [SerializeField] private int tilesAbove = 2;
-    [SerializeField] private int tilesBelow = 2;
+    [Tooltip("화면을 채우는 데 필요한 개수 외에 여유분으로 더 만들 타일 수 (가로/세로 각각)")]
+    [SerializeField] private int extraTiles = 1;
 
-    private SpriteRenderer spriteRenderer;
-    private float tileHeight;
+    [Tooltip("타일 경계의 미세한 틈(seam)을 없애기 위한 겹침 값")]
+    [SerializeField] private float overlap = 0.01f;
 
-    private readonly List<Transform> tiles =
-        new List<Transform>();
+    private Transform cameraTransform;
+    private SpriteRenderer sourceRenderer;
+
+    private Vector3 originPosition;
+
+    private float stepX;            // 타일 간 가로 간격 (폭 - 겹침)
+    private float stepY;            // 타일 간 세로 간격 (높이 - 겹침)
+
+    private int columns = 1;
+    private int rows = 1;
+
+    private float recycleDistanceX; // 가로 한 바퀴 거리
+    private float recycleDistanceY; // 세로 한 바퀴 거리
+
+    private readonly List<Transform> tiles = new List<Transform>();
 
     private void Start()
     {
-        spriteRenderer = GetComponent<SpriteRenderer>();
+        sourceRenderer = GetComponent<SpriteRenderer>();
 
         // Main Camera 자동 연결
-        if (cameraTransform == null)
+        if (targetCamera == null)
         {
-            Camera mainCamera = Camera.main;
-
-            if (mainCamera != null)
-            {
-                cameraTransform = mainCamera.transform;
-            }
+            targetCamera = Camera.main;
         }
 
-        // SpriteRenderer 확인
-        if (spriteRenderer == null)
+        if (sourceRenderer == null || sourceRenderer.sprite == null)
         {
-            Debug.LogError(
-                $"{gameObject.name}: SpriteRenderer가 필요합니다."
-            );
-
+            Debug.LogError($"{gameObject.name}: Sprite가 설정된 SpriteRenderer가 필요합니다.", this);
+            enabled = false;
             return;
         }
 
-        // Camera 확인
-        if (cameraTransform == null)
+        if (targetCamera == null)
         {
-            Debug.LogError(
-                $"{gameObject.name}: Main Camera를 찾을 수 없습니다."
-            );
-
+            Debug.LogError($"{gameObject.name}: Main Camera를 찾을 수 없습니다.", this);
+            enabled = false;
             return;
         }
 
-        // 배경 이미지의 실제 높이
-        tileHeight = spriteRenderer.bounds.size.y;
+        cameraTransform = targetCamera.transform;
 
-        // 원본은 0,0,0
-        transform.position = Vector3.zero;
+        // 원본이 놓인 위치를 격자의 기준으로 삼는다 (z 유지)
+        originPosition = transform.position;
+
+        Vector2 size = sourceRenderer.bounds.size;
+
+        if (size.x <= 0.0001f || size.y <= 0.0001f)
+        {
+            Debug.LogError($"{gameObject.name}: 배경 크기가 0입니다. Scale 또는 Sprite를 확인하세요.", this);
+            enabled = false;
+            return;
+        }
+
+        float gap = Mathf.Max(0f, overlap);
+
+        stepX = Mathf.Max(0.0001f, size.x - gap);
+        stepY = Mathf.Max(0.0001f, size.y - gap);
 
         CreateTiles();
     }
 
+    // --------------------------------
+    // 타일 생성 / 배치
+    // --------------------------------
     private void CreateTiles()
     {
+        GetViewSize(out float viewWidth, out float viewHeight);
+
+        columns = scrollHorizontal ? CalculateCount(viewWidth, stepX) : 1;
+        rows = scrollVertical ? CalculateCount(viewHeight, stepY) : 1;
+
+        recycleDistanceX = stepX * columns;
+        recycleDistanceY = stepY * rows;
+
+        int total = columns * rows;
+
         tiles.Clear();
+        tiles.Add(transform); // 원본
 
-        // --------------------------------
-        // 원본
-        // --------------------------------
-        tiles.Add(transform);
-
-        // --------------------------------
-        // 위쪽 배경 생성
-        // --------------------------------
-        for (int i = 1; i <= tilesAbove; i++)
+        for (int i = 1; i < total; i++)
         {
-            Transform tile = CreateTile();
-
-            tile.position =
-                Vector3.up * tileHeight * i;
-
-            tiles.Add(tile);
+            tiles.Add(CreateTile(i));
         }
 
-        // --------------------------------
-        // 아래쪽 배경 생성
-        // --------------------------------
-        for (int i = 1; i <= tilesBelow; i++)
+        // 원본 격자를 유지한 채 카메라 위치에 맞춰 정렬
+        Vector3 cameraPosition = cameraTransform.position;
+
+        float snappedX = Snap(cameraPosition.x, originPosition.x, stepX, scrollHorizontal);
+        float snappedY = Snap(cameraPosition.y, originPosition.y, stepY, scrollVertical);
+
+        int halfC = columns / 2;
+        int halfR = rows / 2;
+
+        for (int r = 0; r < rows; r++)
         {
-            Transform tile = CreateTile();
-
-            tile.position =
-                Vector3.down * tileHeight * i;
-
-            tiles.Add(tile);
+            for (int c = 0; c < columns; c++)
+            {
+                tiles[r * columns + c].position = new Vector3(
+                    snappedX + stepX * (c - halfC),
+                    snappedY + stepY * (r - halfR),
+                    originPosition.z
+                );
+            }
         }
     }
 
-    private Transform CreateTile()
+    private float Snap(float cameraValue, float originValue, float step, bool axisEnabled)
     {
-        GameObject newTile =
-            Instantiate(
-                gameObject,
-                transform.parent
-            );
-
-        newTile.name =
-            gameObject.name + "_Tile";
-
-        // 복사본에서는 스크립트 비활성화
-        InfiniteBackground background =
-            newTile.GetComponent<InfiniteBackground>();
-
-        if (background != null)
+        if (!axisEnabled)
         {
-            background.enabled = false;
+            return originValue;
         }
 
-        // 생성 직후 위치는 0,0,0
-        newTile.transform.position = Vector3.zero;
-
-        return newTile.transform;
+        return originValue + Mathf.Round((cameraValue - originValue) / step) * step;
     }
 
+    /// <summary>
+    /// 카메라가 보는 범위를 계산. 가로 크기는 aspect(가로모드 기준)로 결정된다.
+    /// </summary>
+    private void GetViewSize(out float width, out float height)
+    {
+        if (targetCamera.orthographic)
+        {
+            height = targetCamera.orthographicSize * 2f;
+        }
+        else
+        {
+            float distance = Mathf.Abs(originPosition.z - cameraTransform.position.z);
+
+            height = 2f * distance *
+                Mathf.Tan(targetCamera.fieldOfView * 0.5f * Mathf.Deg2Rad);
+        }
+
+        width = height * targetCamera.aspect;
+    }
+
+    private int CalculateCount(float viewSize, float step)
+    {
+        int count = Mathf.CeilToInt(viewSize / step) + 2 + Mathf.Max(0, extraTiles);
+
+        return Mathf.Max(3, count);
+    }
+
+    /// <summary>
+    /// 원본을 통째로 복제하지 않고 SpriteRenderer만 가진 타일을 새로 만든다.
+    /// (콜라이더나 다른 스크립트가 함께 복제되는 문제 방지)
+    /// </summary>
+    private Transform CreateTile(int index)
+    {
+        GameObject tile = new GameObject($"{gameObject.name}_Tile_{index}");
+
+        tile.transform.SetParent(transform.parent, false);
+        tile.transform.rotation = transform.rotation;
+        tile.transform.localScale = transform.localScale;
+        tile.layer = gameObject.layer;
+
+        SpriteRenderer renderer = tile.AddComponent<SpriteRenderer>();
+
+        renderer.sprite = sourceRenderer.sprite;
+        renderer.color = sourceRenderer.color;
+        renderer.sharedMaterial = sourceRenderer.sharedMaterial;
+        renderer.sortingLayerID = sourceRenderer.sortingLayerID;
+        renderer.sortingOrder = sourceRenderer.sortingOrder;
+        renderer.flipX = sourceRenderer.flipX;
+        renderer.flipY = sourceRenderer.flipY;
+        renderer.maskInteraction = sourceRenderer.maskInteraction;
+        renderer.drawMode = sourceRenderer.drawMode;
+
+        if (sourceRenderer.drawMode != SpriteDrawMode.Simple)
+        {
+            renderer.size = sourceRenderer.size;
+        }
+
+        return tile.transform;
+    }
+
+    // --------------------------------
+    // 재활용
+    // --------------------------------
     private void LateUpdate()
     {
-        if (cameraTransform == null)
-            return;
-
-        if (tileHeight <= 0f)
-            return;
+        if (cameraTransform == null) return;
+        if (tiles.Count == 0) return;
 
         UpdateTiles();
     }
 
     private void UpdateTiles()
     {
-        float cameraY =
-            cameraTransform.position.y;
+        Vector3 cameraPosition = cameraTransform.position;
 
-        // 카메라보다 충분히 위/아래에
-        // 배경이 존재하도록 설정
-        float topLimit =
-            cameraY + tileHeight * (tilesAbove + 1);
-
-        float bottomLimit =
-            cameraY - tileHeight * (tilesBelow + 1);
-
-        // 전체 배경을 한 바퀴 이동시키는 거리
-        float recycleDistance =
-            tileHeight *
-            (tilesAbove + tilesBelow + 1);
+        float halfX = recycleDistanceX * 0.5f;
+        float halfY = recycleDistanceY * 0.5f;
 
         foreach (Transform tile in tiles)
         {
-            if (tile == null)
-                continue;
+            if (tile == null) continue;
 
-            // 아래로 벗어나면 위로 이동
-            if (tile.position.y < bottomLimit)
+            Vector3 position = tile.position;
+
+            // 가로 재활용
+            if (scrollHorizontal)
             {
-                tile.position +=
-                    Vector3.up * recycleDistance;
+                float diffX = position.x - cameraPosition.x;
+
+                // while: 카메라가 순간이동해도 한 번에 따라붙도록
+                while (diffX < -halfX)
+                {
+                    position.x += recycleDistanceX;
+                    diffX += recycleDistanceX;
+                }
+
+                while (diffX > halfX)
+                {
+                    position.x -= recycleDistanceX;
+                    diffX -= recycleDistanceX;
+                }
             }
 
-            // 위로 벗어나면 아래로 이동
-            else if (tile.position.y > topLimit)
+            // 세로 재활용
+            if (scrollVertical)
             {
-                tile.position -=
-                    Vector3.up * recycleDistance;
+                float diffY = position.y - cameraPosition.y;
+
+                while (diffY < -halfY)
+                {
+                    position.y += recycleDistanceY;
+                    diffY += recycleDistanceY;
+                }
+
+                while (diffY > halfY)
+                {
+                    position.y -= recycleDistanceY;
+                    diffY -= recycleDistanceY;
+                }
             }
+
+            tile.position = position;
         }
     }
 }
