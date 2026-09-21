@@ -9,25 +9,27 @@ public class CameraFollow : MonoBehaviour
     [SerializeField] private float smoothSpeed = 5f;
 
     [Header("Camera Offset")]
-    [SerializeField]
-    private Vector3 offset =
-        new Vector3(4f, 2f, -10f);
+    [SerializeField] private Vector3 offset = new Vector3(0f, 0f, -10f);
+
+    private void Start()
+    {
+        if (target != null)
+            transform.position = GetTargetPosition();
+    }
 
     private void LateUpdate()
     {
         if (target == null)
             return;
 
-        Vector3 targetPosition =
-            target.position + offset;
+        float t = 1f - Mathf.Exp(-smoothSpeed * Time.deltaTime);
+        transform.position = Vector3.Lerp(transform.position, GetTargetPosition(), t);
+    }
 
-        targetPosition.z = offset.z;
-
-        transform.position =
-            Vector3.Lerp(
-                transform.position,
-                targetPosition,
-                smoothSpeed * Time.deltaTime
-            );
+    private Vector3 GetTargetPosition()
+    {
+        Vector3 pos = target.position + offset;
+        pos.z = offset.z;
+        return pos;
     }
 }
