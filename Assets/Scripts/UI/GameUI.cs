@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using TMPro;
 
 public class GameUI : MonoBehaviour
 {
@@ -10,34 +11,34 @@ public class GameUI : MonoBehaviour
 
     [Header("UI")]
     [SerializeField] private GameObject gameOverPanel;
-    [SerializeField] private Text scoreText;
-    [SerializeField] private Text finalScoreText;
+    [SerializeField] private TMP_Text scoreText;
+    [SerializeField] private TMP_Text finalScoreText;
     [SerializeField] private Button restartButton;
 
-    private bool gameOverShown = false;
+    private bool gameOverShown;
+    private int lastScore = -1;
 
     private void Start()
     {
-        // Game Over 패널 숨기기
         if (gameOverPanel != null)
-        {
             gameOverPanel.SetActive(false);
-        }
 
-        // 재시작 버튼
         if (restartButton != null)
-        {
             restartButton.onClick.AddListener(RestartGame);
-        }
 
-        UpdateUI();
+        UpdateScoreText();
+    }
+
+    private void OnDestroy()
+    {
+        if (restartButton != null)
+            restartButton.onClick.RemoveListener(RestartGame);
     }
 
     private void Update()
     {
-        UpdateUI();
+        UpdateScoreText();
 
-        // 플레이어 사망 확인
         if (!gameOverShown &&
             player != null &&
             player.State == PlayerController.PlayerState.Dead)
@@ -46,17 +47,17 @@ public class GameUI : MonoBehaviour
         }
     }
 
-    private void UpdateUI()
+    private void UpdateScoreText()
     {
-        if (stageManager == null)
+        if (stageManager == null || scoreText == null)
             return;
 
-        // 점수
-        if (scoreText != null)
-        {
-            scoreText.text =
-                "SCORE : " + stageManager.GetScore();
-        }
+        int score = stageManager.GetScore();
+        if (score == lastScore)
+            return; // 점수가 바뀔 때만 갱신
+
+        lastScore = score;
+        scoreText.text = $"SCORE : {score}";
     }
 
     private void ShowGameOver()
@@ -64,21 +65,17 @@ public class GameUI : MonoBehaviour
         gameOverShown = true;
 
         if (gameOverPanel != null)
-        {
             gameOverPanel.SetActive(true);
-        }
 
         if (finalScoreText != null && stageManager != null)
-        {
-            finalScoreText.text =
-                "SCORE : " + stageManager.GetScore();
-        }
+            finalScoreText.text = $"SCORE : {stageManager.GetScore()}";
+
+        // Time.timeScale = 0f; // 멈출 경우 RestartGame에서 1f로 복구 필수
     }
 
     private void RestartGame()
     {
-        SceneManager.LoadScene(
-            SceneManager.GetActiveScene().buildIndex
-        );
+        // Time.timeScale = 1f;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }
