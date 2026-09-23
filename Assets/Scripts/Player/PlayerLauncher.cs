@@ -24,6 +24,14 @@ public class PlayerLauncher : MonoBehaviour
     [SerializeField] private int trajectoryPointCount = 30;
     [SerializeField] private float trajectoryTimeStep = 0.08f;
 
+    [Header("Slingshot Band")]
+    [Tooltip("새총 막대의 왼쪽 갈래 끝 위치 (씬에 배치된 빈 오브젝트)")]
+    [SerializeField] private Transform leftForkPoint;
+    [Tooltip("새총 막대의 오른쪽 갈래 끝 위치 (씬에 배치된 빈 오브젝트)")]
+    [SerializeField] private Transform rightForkPoint;
+    [SerializeField] private LineRenderer leftBand;
+    [SerializeField] private LineRenderer rightBand;
+
     private bool isDragging;
     private Vector2 dragStartPosition;
     private Vector2 currentDragPosition;
@@ -49,6 +57,12 @@ public class PlayerLauncher : MonoBehaviour
 
         if (trajectoryLine != null)
             trajectoryLine.sortingOrder = 1;
+
+        if (leftBand != null)
+            leftBand.sortingOrder = 1;
+
+        if (rightBand != null)
+            rightBand.sortingOrder = 1;
 
         HideAim();
     }
@@ -193,7 +207,26 @@ public class PlayerLauncher : MonoBehaviour
             aimLine.SetPosition(1, currentDragPosition);
         }
 
+        DrawSlingshotBand();
         DrawTrajectory();
+    }
+
+    private void DrawSlingshotBand()
+    {
+        // 새총 막대 갈래(fork) 지점에서 현재 당겨진 위치(공)로 이어지는 두 줄
+        if (leftBand != null && leftForkPoint != null)
+        {
+            leftBand.positionCount = 2;
+            leftBand.SetPosition(0, leftForkPoint.position);
+            leftBand.SetPosition(1, currentDragPosition);
+        }
+
+        if (rightBand != null && rightForkPoint != null)
+        {
+            rightBand.positionCount = 2;
+            rightBand.SetPosition(0, rightForkPoint.position);
+            rightBand.SetPosition(1, currentDragPosition);
+        }
     }
 
     private void DrawTrajectory()
@@ -228,6 +261,12 @@ public class PlayerLauncher : MonoBehaviour
 
         if (trajectoryLine != null)
             trajectoryLine.enabled = true;
+
+        if (leftBand != null)
+            leftBand.enabled = true;
+
+        if (rightBand != null)
+            rightBand.enabled = true;
     }
 
     private void HideAim()
@@ -237,6 +276,12 @@ public class PlayerLauncher : MonoBehaviour
 
         if (trajectoryLine != null)
             trajectoryLine.enabled = false;
+
+        if (leftBand != null)
+            leftBand.enabled = false;
+
+        if (rightBand != null)
+            rightBand.enabled = false;
     }
 
     // --------------------------------------------------
