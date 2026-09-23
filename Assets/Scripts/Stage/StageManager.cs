@@ -300,7 +300,12 @@ public class StageManager : MonoBehaviour
         Goal goal = currentGoal.GetComponent<Goal>();
  
         if (goal != null)
+        {
+            // Goal.TryReach()가 매번 FindFirstObjectByType으로 StageManager를
+            // 찾는 폴백에 의존하지 않도록, 정상 경로에서 직접 연결해준다.
+            goal.Init(this);
             goal.ResetGoal();
+        }
     }
  
     private float GetCurrentGoalRadius()
