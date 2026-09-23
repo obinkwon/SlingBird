@@ -28,8 +28,21 @@ public class Platform : MonoBehaviour
         }
     }
 
-    protected virtual void OnCollisionEnter2D(
-        Collision2D collision)
+    protected virtual void OnCollisionEnter2D(Collision2D collision)
+    {
+        TryLand(collision);
+    }
+
+    // Goal.cs의 OnTriggerStay2D와 같은 이유로 추가.
+    // 최초 접촉 프레임(OnCollisionEnter2D)에서 속도/노멀 조건을
+    // 살짝 못 만족했다가 다음 물리 프레임에 조건을 만족하게 되는
+    // 경우(모서리에 스치듯 닿는 등)를 놓치지 않기 위함.
+    private void OnCollisionStay2D(Collision2D collision)
+    {
+        TryLand(collision);
+    }
+
+    protected virtual void TryLand(Collision2D collision)
     {
         if (!canLand)
             return;
