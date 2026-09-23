@@ -25,12 +25,7 @@ public class PlayerLauncher : MonoBehaviour
     [SerializeField] private float trajectoryTimeStep = 0.08f;
 
     [Header("Slingshot Band")]
-    [Tooltip("새총 막대의 왼쪽 갈래 끝 위치 (씬에 배치된 빈 오브젝트)")]
-    [SerializeField] private Transform leftForkPoint;
-    [Tooltip("새총 막대의 오른쪽 갈래 끝 위치 (씬에 배치된 빈 오브젝트)")]
-    [SerializeField] private Transform rightForkPoint;
-    [SerializeField] private LineRenderer leftBand;
-    [SerializeField] private LineRenderer rightBand;
+    [SerializeField] private SlingshotBand slingshotBand;
 
     private bool isDragging;
     private Vector2 dragStartPosition;
@@ -57,12 +52,6 @@ public class PlayerLauncher : MonoBehaviour
 
         if (trajectoryLine != null)
             trajectoryLine.sortingOrder = 1;
-
-        if (leftBand != null)
-            leftBand.sortingOrder = 1;
-
-        if (rightBand != null)
-            rightBand.sortingOrder = 1;
 
         HideAim();
     }
@@ -131,6 +120,9 @@ public class PlayerLauncher : MonoBehaviour
         dragStartPosition = playerPosition;
         currentDragPosition = dragStartPosition;
         isDragging = true;
+
+        if (slingshotBand != null)
+            slingshotBand.BeginAim(dragStartPosition);
 
         ShowAim();
         DrawAim();
@@ -207,26 +199,10 @@ public class PlayerLauncher : MonoBehaviour
             aimLine.SetPosition(1, currentDragPosition);
         }
 
-        DrawSlingshotBand();
+        if (slingshotBand != null)
+            slingshotBand.UpdatePull(currentDragPosition);
+
         DrawTrajectory();
-    }
-
-    private void DrawSlingshotBand()
-    {
-        // 새총 막대 갈래(fork) 지점에서 현재 당겨진 위치(공)로 이어지는 두 줄
-        if (leftBand != null && leftForkPoint != null)
-        {
-            leftBand.positionCount = 2;
-            leftBand.SetPosition(0, leftForkPoint.position);
-            leftBand.SetPosition(1, currentDragPosition);
-        }
-
-        if (rightBand != null && rightForkPoint != null)
-        {
-            rightBand.positionCount = 2;
-            rightBand.SetPosition(0, rightForkPoint.position);
-            rightBand.SetPosition(1, currentDragPosition);
-        }
     }
 
     private void DrawTrajectory()
@@ -262,11 +238,8 @@ public class PlayerLauncher : MonoBehaviour
         if (trajectoryLine != null)
             trajectoryLine.enabled = true;
 
-        if (leftBand != null)
-            leftBand.enabled = true;
-
-        if (rightBand != null)
-            rightBand.enabled = true;
+        if (slingshotBand != null)
+            slingshotBand.Show();
     }
 
     private void HideAim()
@@ -277,11 +250,8 @@ public class PlayerLauncher : MonoBehaviour
         if (trajectoryLine != null)
             trajectoryLine.enabled = false;
 
-        if (leftBand != null)
-            leftBand.enabled = false;
-
-        if (rightBand != null)
-            rightBand.enabled = false;
+        if (slingshotBand != null)
+            slingshotBand.Hide();
     }
 
     // --------------------------------------------------
