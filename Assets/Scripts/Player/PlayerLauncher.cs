@@ -23,6 +23,10 @@ public class PlayerLauncher : MonoBehaviour
     [SerializeField] private LineRenderer trajectoryLine;
     [SerializeField] private int trajectoryPointCount = 30;
     [SerializeField] private float trajectoryTimeStep = 0.08f;
+    [Tooltip("궤적 선 굵기 (기존보다 얇게)")]
+    [SerializeField] private float trajectoryLineWidth = 0.06f;
+    [Tooltip("점선 텍스처가 궤적 전체 길이에 몇 번 반복될지. 값이 클수록 점이 촘촘해짐")]
+    [SerializeField] private float trajectoryDashTiling = 8f;
 
     [Header("Slingshot Band")]
     [SerializeField] private SlingshotBand slingshotBand;
@@ -51,7 +55,15 @@ public class PlayerLauncher : MonoBehaviour
             aimLine.sortingOrder = 1;
 
         if (trajectoryLine != null)
+        {
             trajectoryLine.sortingOrder = 1;
+            trajectoryLine.startWidth = trajectoryLineWidth;
+            trajectoryLine.endWidth = trajectoryLineWidth;
+
+            // 점선처럼 보이려면 LineRenderer의 Material에 점선/대시 텍스처가
+            // 지정되어 있어야 하고, 그 텍스처의 Wrap Mode가 Repeat이어야 함
+            trajectoryLine.textureMode = LineTextureMode.Tile;
+        }
 
         HideAim();
     }
