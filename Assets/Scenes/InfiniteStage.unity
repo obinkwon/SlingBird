@@ -606,13 +606,17 @@ MonoBehaviour:
   maxVerticalDistance: 3.5
   distanceIncreasePerStage: 0.15
   maxDistanceIncrease: 3
+  limitVerticalRange: 1
+  verticalRange: 6
   initialGoalRadius: 3.275
   goalRadiusDecrease: 0.12
   minimumGoalRadius: 0.8
   scorePerGoal: 100
-  launchSimulationTimeStep: 0.05
-  launchSimulationMaxTime: 3
-  goalReachTolerance: 0.5
+  launchSpeed: 15
+  reachSpeedMargin: 0.9
+  minLaunchAngle: 0
+  maxLaunchAngle: 80
+  maxFlightTime: 3
   maxGoalGenerationAttempts: 30
 --- !u!1 &656199902
 GameObject:
@@ -1171,11 +1175,15 @@ MonoBehaviour:
   mainCamera: {fileID: 519420031}
   launchPower: 8
   maxDragDistance: 2.5
+  minPullDistance: 0.15
   playerClickRadius: 1
   aimLine: {fileID: 1400333726}
   trajectoryLine: {fileID: 918064922}
   trajectoryPointCount: 30
   trajectoryTimeStep: 0.08
+  trajectoryLineWidth: 0.06
+  trajectoryDashTiling: 8
+  slingshotBand: {fileID: 0}
 --- !u!114 &1001192748
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1191,6 +1199,7 @@ MonoBehaviour:
   rb: {fileID: 1001192743}
   maxSpeed: 15
   launchIgnoreCollisionTime: 0.15
+  debugLog: 0
 --- !u!1 &1276335937
 GameObject:
   m_ObjectHideFlags: 0
@@ -1221,9 +1230,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5e1d8e0101b53a443bb4cee185f3ddcb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InfiniteBackground
-  cameraTransform: {fileID: 519420032}
-  tilesAbove: 2
-  tilesBelow: 2
+  targetCamera: {fileID: 519420031}
+  scrollHorizontal: 1
+  scrollVertical: 1
+  extraTiles: 1
+  overlap: 0.01
 --- !u!4 &1276335939
 Transform:
   m_ObjectHideFlags: 0
@@ -1288,12 +1299,12 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 6470638847984894125, guid: e4488c251cbd27e41a8fb2f1fb69055b, type: 3}
+  m_Sprite: {fileID: -6360638140055760483, guid: e4488c251cbd27e41a8fb2f1fb69055b, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 30.719997, y: 15.359999}
+  m_Size: {x: 15.36, y: 8.64}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
@@ -1561,8 +1572,8 @@ MonoBehaviour:
   stageManager: {fileID: 639472904}
   player: {fileID: 1001192748}
   gameOverPanel: {fileID: 327614676}
-  scoreText: {fileID: 656199904}
-  finalScoreText: {fileID: 735155244}
+  scoreText: {fileID: 0}
+  finalScoreText: {fileID: 0}
   restartButton: {fileID: 280517430}
 --- !u!1 &2025871198
 GameObject:
