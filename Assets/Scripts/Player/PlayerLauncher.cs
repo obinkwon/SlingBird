@@ -3,9 +3,9 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// 플레이어를 드래그해서 앵그리버드처럼 발사하는 스크립트.
-/// Y자 새총 스틱(고정 이미지) + 양쪽 프롱(가지 끝)에서 뻗어나오는
-/// 밴드(선 이미지) 2개로 새총처럼 당기는 모습을 표현한다.
-/// (밴드는 직선으로만 늘어남 - 탄성/흔들림 없음)
+/// 새총 스틱(Y자 이미지)은 스테이지마다 새로 스폰되므로,
+/// 시각 요소는 SlingshotVisual 컴포넌트로 분리되어 있고
+/// StageManager/Goal이 AttachSlingshot()으로 매 스테이지마다 새 새총을 연결해준다.
 /// </summary>
 [RequireComponent(typeof(PlayerController))]
 public class PlayerLauncher : MonoBehaviour
@@ -15,28 +15,17 @@ public class PlayerLauncher : MonoBehaviour
     [SerializeField] private Camera mainCamera;
 
     [Header("발사 설정")]
-    [SerializeField] private float maxDragDistance = 3f;   // 이 이상 당기면 더 안 늘어남
-    [SerializeField] private float launchPower = 6f;       // 당긴 거리 -> 속도 변환 배율
-    [SerializeField] private float maxLaunchSpeed = 15f;    // 최종 발사 속도 제한
+    [SerializeField] private float maxDragDistance = 3f;
+    [SerializeField] private float launchPower = 6f;
+    [SerializeField] private float maxLaunchSpeed = 15f;
 
     [Header("궤적 예측선 (선택)")]
     [SerializeField] private LineRenderer trajectoryLine;
     [SerializeField] private int trajectoryPoints = 20;
     [SerializeField] private float trajectoryTimeStep = 0.1f;
 
-    [Header("새총 스틱 (Y자 이미지, 고정 오브젝트)")]
-    [SerializeField] private Transform slingshotStick;     // 화면에 항상 보이는 Y자 스틱 스프라이트
-    [SerializeField] private Transform pouchAnchor;        // 새총 가운데(주머니) 기준점 - 힘 계산 및 대기 시 플레이어 위치
-    [SerializeField] private Transform leftProngAnchor;    // 왼쪽 가지 끝 (밴드 시작점)
-    [SerializeField] private Transform rightProngAnchor;   // 오른쪽 가지 끝 (밴드 시작점)
-
-    [Header("새총 밴드 (선 이미지 2개, 각 프롱 -> 당기는 지점)")]
-    [SerializeField] private Transform leftBandSprite;   // 세로로 긴 선 이미지 (Pivot: Bottom)
-    [SerializeField] private Transform rightBandSprite;  // 세로로 긴 선 이미지 (Pivot: Bottom)
-    [SerializeField] private float bandAngleOffset = -90f; // 스프라이트가 세로로 그려진 경우 -90, 가로면 0
-
-    private Vector3 leftBandBaseScale;
-    private Vector3 rightBandBaseScale;
+    // 현재 스테이지의 새총. StageManager/Goal이 스폰 후 AttachSlingshot으로 넘겨줌.
+    private SlingshotVisual currentSlingshot;
     private bool isDragging;
 
     private void Awake()
@@ -44,23 +33,33 @@ public class PlayerLauncher : MonoBehaviour
         if (player == null) player = GetComponent<PlayerController>();
         if (mainCamera == null) mainCamera = Camera.main;
 
-        if (leftBandSprite != null) leftBandBaseScale = leftBandSprite.localScale;
-        if (rightBandSprite != null) rightBandBaseScale = rightBandSprite.localScale;
-
         if (trajectoryLine != null)
             trajectoryLine.positionCount = 0;
+    }
 
-        if (pouchAnchor == null)
-            pouchAnchor = transform; // 별도 지정 안 하면 플레이어 자기 자신 위치 사용
+    /// <summary>
+    /// 새 스테이지가 시작될 때 StageManager(또는 Goal)가 호출해서
+    /// 새로 스폰된 새총을 이 플레이어의 발사 기준으로 연결한다.
+    /// </summary>
+    public void AttachSlingshot(SlingshotVisual slingshot)
+    {
+        // 이전 새총이 남아있다면 밴드부터 정리
+        currentSlingshot?.HideBands();
+
+        currentSlingshot = slingshot;
+        isDragging = false;
+        ClearTrajectoryPreview();
     }
 
     private void Update()
     {
-        // 조준/발사는 Ready 또는 Aiming 상태에서만 처리
+        if (currentSlingshot == null)
+            return; // 아직 새총이 연결되지 않음 (스폰 대기 등)
+
         if (player.State != PlayerController.PlayerState.Ready &&
             player.State != PlayerController.PlayerState.Aiming)
         {
-            HideBands();
+            currentSlingshot.HideBands();
             return;
         }
 
@@ -76,6 +75,8 @@ public class PlayerLauncher : MonoBehaviour
         Vector3 worldPos = mainCamera.ScreenToWorldPoint(screenPos);
         worldPos.z = 0f;
 
+        Vector2 pouch = currentSlingshot.PouchAnchor.position;
+
         if (mouse.leftButton.wasPressedThisFrame)
         {
             isDragging = true;
@@ -83,111 +84,67 @@ public class PlayerLauncher : MonoBehaviour
         }
         else if (mouse.leftButton.isPressed && isDragging)
         {
-            Vector2 clampedDragPos = GetClampedDragPosition(worldPos);
-            UpdateBands(clampedDragPos);
-            UpdateTrajectoryPreview(clampedDragPos);
+            Vector2 clampedDragPos = GetClampedDragPosition(worldPos, pouch);
+            currentSlingshot.UpdateBands(clampedDragPos);
+            UpdateTrajectoryPreview(clampedDragPos, pouch);
         }
         else if (mouse.leftButton.wasReleasedThisFrame && isDragging)
         {
             isDragging = false;
-            Vector2 clampedDragPos = GetClampedDragPosition(worldPos);
-            LaunchPlayer(clampedDragPos);
+            Vector2 clampedDragPos = GetClampedDragPosition(worldPos, pouch);
+            LaunchPlayer(clampedDragPos, pouch);
             ClearTrajectoryPreview();
         }
         else if (!isDragging)
         {
-            // 대기 상태: 밴드가 새총 가운데(주머니)에 걸려 있는 기본 모습
-            UpdateBands(pouchAnchor.position);
+            // 대기 상태: 밴드가 주머니 위치에 걸려 있는 기본 모습
+            currentSlingshot.UpdateBands(pouch);
         }
     }
 
-    /// <summary>
-    /// 주머니(pouchAnchor) 기준으로 maxDragDistance를 넘지 않도록 드래그 위치를 제한한다.
-    /// </summary>
-    private Vector2 GetClampedDragPosition(Vector2 rawWorldPos)
+    private Vector2 GetClampedDragPosition(Vector2 rawWorldPos, Vector2 pouch)
     {
-        Vector2 anchor = pouchAnchor.position;
-        Vector2 offset = rawWorldPos - anchor;
+        Vector2 offset = rawWorldPos - pouch;
 
         if (offset.magnitude > maxDragDistance)
             offset = offset.normalized * maxDragDistance;
 
-        return anchor + offset;
+        return pouch + offset;
     }
 
-    /// <summary>
-    /// 좌우 밴드를 각각의 프롱(가지 끝) -> targetPos 로 직선으로 늘려서 갱신한다.
-    /// </summary>
-    private void UpdateBands(Vector2 targetPos)
+    private void LaunchPlayer(Vector2 dragPos, Vector2 pouch)
     {
-        UpdateSingleBand(leftBandSprite, leftBandBaseScale, leftProngAnchor, targetPos);
-        UpdateSingleBand(rightBandSprite, rightBandBaseScale, rightProngAnchor, targetPos);
-    }
-
-    private void UpdateSingleBand(Transform band, Vector3 baseScale, Transform prong, Vector2 targetPos)
-    {
-        if (band == null || prong == null) return;
-
-        band.gameObject.SetActive(true);
-
-        Vector2 origin = prong.position;
-        Vector2 dir = targetPos - origin;
-        float distance = dir.magnitude;
-
-        // 위치는 프롱 끝에 고정 (스프라이트 pivot이 하단이라고 가정)
-        band.position = origin;
-
-        // 방향에 맞춰 회전
-        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg + bandAngleOffset;
-        band.rotation = Quaternion.Euler(0f, 0f, angle);
-
-        // 거리만큼 y축으로 늘림 (스프라이트 원본 세로 길이 = 1 unit 기준)
-        band.localScale = new Vector3(baseScale.x, distance, baseScale.z);
-    }
-
-    private void HideBands()
-    {
-        if (leftBandSprite != null) leftBandSprite.gameObject.SetActive(false);
-        if (rightBandSprite != null) rightBandSprite.gameObject.SetActive(false);
-    }
-
-    /// <summary>
-    /// 드래그 위치 기준으로 발사 속도를 계산해서 캐릭터를 발사한다.
-    /// 당긴 반대 방향으로 날아가므로 velocity는 (pouchAnchor - dragPos) 방향.
-    /// </summary>
-    private void LaunchPlayer(Vector2 dragPos)
-    {
-        Vector2 anchor = pouchAnchor.position;
-        Vector2 pullVector = anchor - dragPos; // 당긴 반대 방향
+        Vector2 pullVector = pouch - dragPos;
         Vector2 velocity = pullVector * launchPower;
 
         if (velocity.magnitude > maxLaunchSpeed)
             velocity = velocity.normalized * maxLaunchSpeed;
 
         player.Launch(velocity);
-        HideBands(); // 발사 후에는 밴드 숨김 (날아가는 동안 새총과 분리된 모습)
+        currentSlingshot.HideBands();
+
+        // 발사된 새총은 더 이상 쓰지 않음 -> 다음 스테이지에서 AttachSlingshot으로 새로 연결됨
+        currentSlingshot = null;
     }
 
-    private void UpdateTrajectoryPreview(Vector2 dragPos)
+    private void UpdateTrajectoryPreview(Vector2 dragPos, Vector2 pouch)
     {
         if (trajectoryLine == null) return;
 
-        Vector2 anchor = pouchAnchor.position;
-        Vector2 pullVector = anchor - dragPos;
+        Vector2 pullVector = pouch - dragPos;
         Vector2 startVelocity = pullVector * launchPower;
 
         if (startVelocity.magnitude > maxLaunchSpeed)
             startVelocity = startVelocity.normalized * maxLaunchSpeed;
 
         trajectoryLine.positionCount = trajectoryPoints;
-        Vector2 simPos = anchor;
+        Vector2 simPos = pouch;
         Vector2 simVel = startVelocity;
-        float gravityScale = Physics2D.gravity.y; // Rigidbody2D 기본 gravityScale=1 가정
+        float gravityScale = Physics2D.gravity.y;
 
         for (int i = 0; i < trajectoryPoints; i++)
         {
             trajectoryLine.SetPosition(i, simPos);
-
             simVel += new Vector2(0f, gravityScale) * trajectoryTimeStep;
             simPos += simVel * trajectoryTimeStep;
         }
