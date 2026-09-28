@@ -1,81 +1,84 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using TMPro;
+using UnityEngine.SceneManagement;
 
+/// <summary>
+/// 점수 표시 / 게임오버 패널 / 재시작 버튼 + 게임오버 시 점수 저장.
+/// 레거시 UI Text 사용.
+/// </summary>
 public class GameUI : MonoBehaviour
 {
-    [Header("References")]
+    [Header("참조")]
     [SerializeField] private StageManager stageManager;
     [SerializeField] private PlayerController player;
 
-    [Header("UI")]
+    [Header("플레이 중 UI")]
+    [SerializeField] private Text scoreText;
+
+    [Header("게임오버 UI")]
     [SerializeField] private GameObject gameOverPanel;
-    [SerializeField] private TMP_Text scoreText;
-    [SerializeField] private TMP_Text finalScoreText;
+    [SerializeField] private Text finalScoreText;
+    [SerializeField] private Text bestScoreText;
+    [SerializeField] private GameObject newBestLabel;   // "NEW BEST!" 표시용 (선택)
     [SerializeField] private Button restartButton;
 
-    private bool gameOverShown;
-    private int lastScore = -1;
+    // 게임오버 처리를 한 번만 하기 위한 플래그
+    private bool gameOverHandled;
 
     private void Start()
     {
-        if (gameOverPanel != null)
-            gameOverPanel.SetActive(false);
+        if (gameOverPanel != null) gameOverPanel.SetActive(false);
+        if (newBestLabel != null) newBestLabel.SetActive(false);
+        if (restartButton != null) restartButton.onClick.AddListener(Restart);
 
-        if (restartButton != null)
-            restartButton.onClick.AddListener(RestartGame);
-
-        UpdateScoreText();
-    }
-
-    private void OnDestroy()
-    {
-        if (restartButton != null)
-            restartButton.onClick.RemoveListener(RestartGame);
+        gameOverHandled = false;
+        RefreshScore();
     }
 
     private void Update()
     {
-        UpdateScoreText();
+        if (gameOverHandled) return;
 
-        if (!gameOverShown &&
-            player != null &&
-            player.State == PlayerController.PlayerState.Dead)
+        RefreshScore();
+
+        // 플레이어가 죽으면 딱 한 번만 게임오버 처리
+        if (player.State == PlayerController.PlayerState.Dead)
         {
-            ShowGameOver();
+            HandleGameOver();
         }
     }
 
-    private void UpdateScoreText()
+    private void RefreshScore()
     {
-        if (stageManager == null || scoreText == null)
-            return;
+        if (scoreText != null)
+            scoreText.text = stageManager.GetScore().ToString();
+    }
+
+    private void HandleGameOver()
+    {
+        gameOverHandled = true;
 
         int score = stageManager.GetScore();
-        if (score == lastScore)
-            return; // 점수가 바뀔 때만 갱신
 
-        lastScore = score;
-        scoreText.text = $"SCORE : {score}";
+        // ★ 점수 저장 (최고 점수 갱신 여부 반환)
+        bool isNewBest = ScoreSaver.SaveIfBest(score);
+
+        if (finalScoreText != null) finalScoreText.text = $"SCORE  {score}";
+        if (bestScoreText != null) bestScoreText.text = $"BEST  {ScoreSaver.BestScore}";
+        if (newBestLabel != null) newBestLabel.SetActive(isNewBest);
+        if (gameOverPanel != null) gameOverPanel.SetActive(true);
     }
 
-    private void ShowGameOver()
+    private void Restart()
     {
-        gameOverShown = true;
-
-        if (gameOverPanel != null)
-            gameOverPanel.SetActive(true);
-
-        if (finalScoreText != null && stageManager != null)
-            finalScoreText.text = $"SCORE : {stageManager.GetScore()}";
-
-        // Time.timeScale = 0f; // 멈출 경우 RestartGame에서 1f로 복구 필수
-    }
-
-    private void RestartGame()
-    {
-        // Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
+    // 앱이 백그라운드로 가거나 종료될 때, 게임오버 전이라도 현재 점수를 보존하고 싶다면 사용
+    // (원하지 않으면 이 메서드는 삭제해도 됩니다)
+    private void OnApplicationPause(bool paused)
+    {
+        if (paused && !gameOverHandled && stageManager != null)
+            ScoreSaver.SaveIfBest(stageManager.GetScore());
     }
 }
