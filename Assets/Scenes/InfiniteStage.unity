@@ -595,9 +595,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::StageManager
   player: {fileID: 1001192748}
+  playerLauncher: {fileID: 1001192747}
   startPlatformPrefab: {fileID: 2563005468605709032, guid: d6f0bd811f7e5a34a9f6f99cbf646adc, type: 3}
   platformPrefab: {fileID: 2563005468605709032, guid: d6f0bd811f7e5a34a9f6f99cbf646adc, type: 3}
   goalPrefab: {fileID: 939786487079494382, guid: 84617954055d23f4aab811400d81eba6, type: 3}
+  slingshotPrefab: {fileID: 441018125023574620, guid: 676cde5b0c765c746b25ac342cd625ca, type: 3}
   startPlatformPosition: {x: 0, y: -2}
   playerStartOffset: 0.05
   minPlatformDistance: 4
@@ -611,7 +613,12 @@ MonoBehaviour:
   initialGoalRadius: 3.275
   goalRadiusDecrease: 0.12
   minimumGoalRadius: 0.8
+  trajectoryFadeStartStage: 3
+  trajectoryFadeStages: 15
+  fadeStartAtMax: 0.1
+  fadeEndAtMax: 0.45
   scorePerGoal: 100
+  fallDeathMargin: 6
   launchSpeed: 15
   reachSpeedMargin: 0.9
   minLaunchAngle: 0
@@ -1171,19 +1178,23 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerLauncher
   player: {fileID: 1001192748}
-  rb: {fileID: 1001192743}
   mainCamera: {fileID: 519420031}
-  launchPower: 8
   maxDragDistance: 2.5
+  launchPower: 8
   minPullDistance: 0.15
-  playerClickRadius: 1
-  aimLine: {fileID: 1400333726}
-  trajectoryLine: {fileID: 918064922}
-  trajectoryPointCount: 30
-  trajectoryTimeStep: 0.08
-  trajectoryLineWidth: 0.06
-  trajectoryDashTiling: 8
-  slingshotBand: {fileID: 0}
+  dotSprite: {fileID: 58537775430694542, guid: 60b9c679138d17247bcbab6cc4e5be22, type: 3}
+  dotCount: 15
+  dotSpacing: 0.4
+  dotScale: 0.5
+  dotColor: {r: 1, g: 1, b: 1, a: 1}
+  dotSortingOrder: 5
+  fadeWithDistance: 1
+  minDotAlpha: 0.2
+  previewSimStep: 0.01
+  previewMaxTime: 3
+  trajectoryFadeStart: 1
+  trajectoryFadeEnd: 1
+  hideAlphaThreshold: 0.02
 --- !u!114 &1001192748
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1199,6 +1210,7 @@ MonoBehaviour:
   rb: {fileID: 1001192743}
   maxSpeed: 15
   launchIgnoreCollisionTime: 0.15
+  dieOnMissedLanding: 0
   debugLog: 0
 --- !u!1 &1276335937
 GameObject:
@@ -1571,10 +1583,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GameUI
   stageManager: {fileID: 639472904}
   player: {fileID: 1001192748}
-  gameOverPanel: {fileID: 327614676}
   scoreText: {fileID: 0}
+  gameOverPanel: {fileID: 327614676}
   finalScoreText: {fileID: 0}
+  bestScoreText: {fileID: 0}
+  newBestLabel: {fileID: 0}
   restartButton: {fileID: 280517430}
+  homeButton: {fileID: 0}
+  gameSceneName: 
+  homeSceneName: 
 --- !u!1 &2025871198
 GameObject:
   m_ObjectHideFlags: 0

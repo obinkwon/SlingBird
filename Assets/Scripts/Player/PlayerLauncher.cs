@@ -27,7 +27,7 @@ public class PlayerLauncher : MonoBehaviour
     [SerializeField] private int dotCount = 15;
     [Tooltip("점과 점 사이의 실제 거리(월드 단위). 클수록 성긴 점선")]
     [SerializeField] private float dotSpacing = 0.4f;
-    [SerializeField] private float dotScale = 0.2f;
+    [SerializeField] private float dotScale = 0.5f;
     [SerializeField] private Color dotColor = Color.white;
     [SerializeField] private int dotSortingOrder = 5;
     [Tooltip("켜면 멀어질수록 점이 투명해집니다. (기본 페이드, 난이도 페이드와 곱해서 적용)")]
