@@ -22,6 +22,10 @@ public class GameUI : MonoBehaviour
     [SerializeField] private GameObject newBestLabel;   // "NEW BEST!" 표시용 (선택)
     [SerializeField] private Button restartButton;
 
+    [Header("씬")]
+    [Tooltip("재시작 시 이동할 게임 씬 이름. 비워두면 현재 씬을 다시 로드")]
+    [SerializeField] private string gameSceneName = "";
+
     // 게임오버 처리를 한 번만 하기 위한 플래그
     private bool gameOverHandled;
 
@@ -71,7 +75,13 @@ public class GameUI : MonoBehaviour
 
     private void Restart()
     {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        // 재시작 시 홈 화면을 건너뛰고 바로 게임 화면으로
+        GameFlow.SkipHome = true;
+
+        if (string.IsNullOrEmpty(gameSceneName))
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        else
+            SceneManager.LoadScene(gameSceneName);
     }
 
     // 앱이 백그라운드로 가거나 종료될 때, 게임오버 전이라도 현재 점수를 보존하고 싶다면 사용
