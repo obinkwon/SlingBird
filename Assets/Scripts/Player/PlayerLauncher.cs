@@ -6,6 +6,7 @@ using UnityEngine.InputSystem;
 /// - 당기는 표현: SlingshotVisual의 밴드 이미지(직선)
 /// - 궤적 예측: 점 스프라이트를 포물선 위에 일정 간격으로 찍어 점선처럼 표현
 /// 새총은 스테이지마다 새로 스폰되므로 StageManager가 AttachSlingshot()으로 연결해준다.
+/// 난이도에 따라 StageManager가 SetTrajectoryFade()로 궤적이 사라지는 구간을 조절한다.
 /// </summary>
 [RequireComponent(typeof(PlayerController))]
 public class PlayerLauncher : MonoBehaviour
@@ -29,12 +30,22 @@ public class PlayerLauncher : MonoBehaviour
     [SerializeField] private float dotScale = 0.2f;
     [SerializeField] private Color dotColor = Color.white;
     [SerializeField] private int dotSortingOrder = 5;
-    [Tooltip("켜면 멀어질수록 점이 투명해집니다.")]
+    [Tooltip("켜면 멀어질수록 점이 투명해집니다. (기본 페이드, 난이도 페이드와 곱해서 적용)")]
     [SerializeField] private bool fadeWithDistance = true;
     [Range(0f, 1f)]
     [SerializeField] private float minDotAlpha = 0.2f;
     [SerializeField] private float previewSimStep = 0.01f;
     [SerializeField] private float previewMaxTime = 3f;
+
+    [Header("난이도 페이드 (StageManager가 설정)")]
+    [Tooltip("이 값 이하 구간(0~1)은 그대로 보입니다. 1이면 페이드 없음.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float trajectoryFadeStart = 1f;
+    [Tooltip("이 값 이상 구간(0~1)은 완전히 투명합니다. 1이면 페이드 없음.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float trajectoryFadeEnd = 1f;
+    [Tooltip("점 알파가 이 값 이하가 되면 아예 숨깁니다.")]
+    [SerializeField] private float hideAlphaThreshold = 0.02f;
 
     // 현재 스테이지의 새총. StageManager가 스폰 후 AttachSlingshot으로 넘겨줌.
     private SlingshotVisual currentSlingshot;
@@ -76,6 +87,21 @@ public class PlayerLauncher : MonoBehaviour
         currentSlingshot = slingshot;
         isDragging = false;
         HideDots();
+    }
+
+    // =========================================================
+    // Difficulty (Trajectory Fade)
+    // =========================================================
+
+    /// <summary>
+    /// 궤적 점선이 투명해지는 구간을 설정한다. (점선 위치를 0~1로 봤을 때)
+    /// fadeStart부터 서서히 옅어지고 fadeEnd에서 완전히 사라진다.
+    /// (1, 1)이면 난이도 페이드 없음.
+    /// </summary>
+    public void SetTrajectoryFade(float fadeStart, float fadeEnd)
+    {
+        trajectoryFadeStart = Mathf.Clamp01(fadeStart);
+        trajectoryFadeEnd = Mathf.Clamp01(fadeEnd);
     }
 
     // =========================================================
@@ -266,14 +292,31 @@ public class PlayerLauncher : MonoBehaviour
     private void PlaceDot(int index, Vector2 position)
     {
         SpriteRenderer sr = dots[index];
+
+        // 점선 위치 0(발사 지점) ~ 1(끝)
+        float t = dots.Length > 1 ? index / (float)(dots.Length - 1) : 0f;
+
+        float alpha = dotColor.a;
+
+        // 기본 페이드: 멀어질수록 옅어짐
+        if (fadeWithDistance)
+            alpha *= Mathf.Lerp(1f, minDotAlpha, t);
+
+        // 난이도 페이드: fadeStart부터 서서히 투명 -> fadeEnd에서 완전 투명
+        // (start == end == 1이면 InverseLerp가 0을 돌려주므로 페이드 없음)
+        float fade = Mathf.InverseLerp(trajectoryFadeStart, trajectoryFadeEnd, t);
+        alpha *= Mathf.SmoothStep(1f, 0f, fade);
+
+        if (alpha <= hideAlphaThreshold)
+        {
+            sr.gameObject.SetActive(false);
+            return;
+        }
+
         sr.transform.position = position;
 
         Color c = dotColor;
-        if (fadeWithDistance && dots.Length > 1)
-        {
-            float t = index / (float)(dots.Length - 1);
-            c.a = dotColor.a * Mathf.Lerp(1f, minDotAlpha, t);
-        }
+        c.a = alpha;
         sr.color = c;
 
         sr.gameObject.SetActive(true);
