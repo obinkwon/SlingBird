@@ -4,9 +4,11 @@ public class StageManager : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private PlayerController player;
+    [SerializeField] private PlayerLauncher playerLauncher;
     [SerializeField] private GameObject startPlatformPrefab;
     [SerializeField] private GameObject platformPrefab;
     [SerializeField] private GameObject goalPrefab;
+    [SerializeField] private GameObject slingshotPrefab; // SlingshotVisual이 붙은 Y자 새총 프리팹
  
     [Header("Start")]
     [SerializeField] private Vector2 startPlatformPosition = new Vector2(0f, -1f);
@@ -47,6 +49,7 @@ public class StageManager : MonoBehaviour
  
     private GameObject currentPlatform;
     private GameObject currentGoal;
+    private GameObject currentSlingshot;
  
     private Rigidbody2D playerRb;
     private Collider2D playerCollider;
@@ -72,6 +75,10 @@ public class StageManager : MonoBehaviour
         {
             playerRb = player.GetComponent<Rigidbody2D>();
             playerCollider = player.GetComponent<Collider2D>();
+ 
+            // 인스펙터에서 안 넣었으면 플레이어에서 찾아온다
+            if (playerLauncher == null)
+                playerLauncher = player.GetComponent<PlayerLauncher>();
         }
     }
  
@@ -96,9 +103,11 @@ public class StageManager : MonoBehaviour
  
         if (player != null && currentPlatform != null)
         {
-            player.SetStartPosition(
-                GetPlayerPositionOn(currentPlatform, startPlatformPosition)
-            );
+            Vector2 playerPos =
+                GetPlayerPositionOn(currentPlatform, startPlatformPosition);
+ 
+            player.SetStartPosition(playerPos);
+            SpawnSlingshot(playerPos);
         }
  
         SpawnNextGoal();
@@ -118,9 +127,10 @@ public class StageManager : MonoBehaviour
         // Flying 상태 종료
         player.ReachGoal();
  
-        // 이전 플랫폼 / 현재 Goal 삭제
+        // 이전 플랫폼 / 현재 Goal / 이전 새총 삭제
         DestroyAndClear(ref currentPlatform);
         DestroyAndClear(ref currentGoal);
+        DestroyAndClear(ref currentSlingshot);
  
         // Goal 위치에 새 플랫폼 생성 후 등록
         currentPlatform = SpawnPlatform(goalPosition);
@@ -129,9 +139,11 @@ public class StageManager : MonoBehaviour
         RegisterPlatformToPlayer(currentPlatform);
  
         // 플레이어를 새 플랫폼 위로 이동
-        player.MoveToPlatform(
-            GetPlayerPositionOn(currentPlatform, goalPosition)
-        );
+        Vector2 playerPos = GetPlayerPositionOn(currentPlatform, goalPosition);
+        player.MoveToPlatform(playerPos);
+ 
+        // 새 플랫폼 위에 새 새총 생성 후 발사 스크립트에 연결
+        SpawnSlingshot(playerPos);
  
         SpawnNextGoal();
     }
@@ -306,6 +318,33 @@ public class StageManager : MonoBehaviour
             goal.Init(this);
             goal.ResetGoal();
         }
+    }
+ 
+    // 새총 프리팹을 생성하고, 주머니(pouch) 위치가 플레이어 대기 위치와
+    // 일치하도록 맞춘 뒤 PlayerLauncher에 연결한다.
+    private void SpawnSlingshot(Vector2 playerPosition)
+    {
+        if (slingshotPrefab == null || playerLauncher == null)
+            return;
+ 
+        currentSlingshot =
+            Instantiate(slingshotPrefab, playerPosition, Quaternion.identity);
+ 
+        SlingshotVisual slingshot =
+            currentSlingshot.GetComponent<SlingshotVisual>();
+ 
+        if (slingshot == null)
+        {
+            Debug.LogWarning("StageManager: 새총 프리팹에 SlingshotVisual이 없습니다.");
+            return;
+        }
+ 
+        // 프리팹 피벗과 무관하게 pouchAnchor가 플레이어 위치에 오도록 보정
+        Vector3 offset = (Vector3)playerPosition - slingshot.PouchAnchor.position;
+        offset.z = 0f;
+        currentSlingshot.transform.position += offset;
+ 
+        playerLauncher.AttachSlingshot(slingshot);
     }
  
     private float GetCurrentGoalRadius()
