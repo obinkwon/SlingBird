@@ -33,6 +33,18 @@ public class StageManager : MonoBehaviour
     [SerializeField] private float goalRadiusDecrease = 0.12f;
     [SerializeField] private float minimumGoalRadius = 1.2f;
 
+    [Header("Trajectory Fade (Difficulty)")]
+    [Tooltip("이 스테이지(0부터 시작)부터 궤적이 투명해지기 시작합니다.")]
+    [SerializeField] private int trajectoryFadeStartStage = 3;
+    [Tooltip("시작 스테이지로부터 몇 스테이지 만에 최대 난이도(가장 짧은 궤적)에 도달하는지")]
+    [SerializeField] private int trajectoryFadeStages = 15;
+    [Tooltip("최대 난이도에서 궤적이 투명해지기 시작하는 위치 (0~1)")]
+    [Range(0f, 1f)]
+    [SerializeField] private float fadeStartAtMax = 0.1f;
+    [Tooltip("최대 난이도에서 궤적이 완전히 사라지는 위치 (0~1)")]
+    [Range(0f, 1f)]
+    [SerializeField] private float fadeEndAtMax = 0.45f;
+
     [Header("Score")]
     [SerializeField] private int scorePerGoal = 100;
 
@@ -125,6 +137,8 @@ public class StageManager : MonoBehaviour
         stageCount = 0;
         score = 0;
 
+        ApplyTrajectoryDifficulty();
+
         currentPlatform = SpawnPlatform(startPlatformPosition);
         lastPlatformPosition = startPlatformPosition;
 
@@ -153,6 +167,9 @@ public class StageManager : MonoBehaviour
         stageCount++;
         score += scorePerGoal;
 
+        // 새 스테이지 난이도에 맞춰 궤적 페이드 갱신
+        ApplyTrajectoryDifficulty();
+
         // Flying 상태 종료
         player.ReachGoal();
 
@@ -180,6 +197,37 @@ public class StageManager : MonoBehaviour
     private void SpawnNextGoal()
     {
         SpawnGoal(GetNextGoalPosition());
+    }
+
+    // =========================================================
+    // Difficulty - Trajectory Fade
+    // =========================================================
+
+    /// <summary>
+    /// 0 = 궤적이 그대로 보임, 1 = 최대 난이도(궤적이 가장 짧게 사라짐)
+    /// </summary>
+    private float GetTrajectoryDifficulty()
+    {
+        if (stageCount < trajectoryFadeStartStage)
+            return 0f;
+
+        int stagesIn = stageCount - trajectoryFadeStartStage + 1;
+        return Mathf.Clamp01(stagesIn / (float)Mathf.Max(1, trajectoryFadeStages));
+    }
+
+    private void ApplyTrajectoryDifficulty()
+    {
+        if (playerLauncher == null)
+            return;
+
+        float d = GetTrajectoryDifficulty();
+
+        // d = 0 -> (1, 1): 페이드 없음
+        // d = 1 -> (fadeStartAtMax, fadeEndAtMax): 발사 지점 근처부터 옅어져 일찍 사라짐
+        float fadeStart = Mathf.Lerp(1f, fadeStartAtMax, d);
+        float fadeEnd = Mathf.Lerp(1f, fadeEndAtMax, d);
+
+        playerLauncher.SetTrajectoryFade(fadeStart, fadeEnd);
     }
 
     // =========================================================
