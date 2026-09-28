@@ -21,10 +21,13 @@ public class GameUI : MonoBehaviour
     [SerializeField] private Text bestScoreText;
     [SerializeField] private GameObject newBestLabel;   // "NEW BEST!" 표시용 (선택)
     [SerializeField] private Button restartButton;
+    [SerializeField] private Button homeButton;
 
     [Header("씬")]
     [Tooltip("재시작 시 이동할 게임 씬 이름. 비워두면 현재 씬을 다시 로드")]
     [SerializeField] private string gameSceneName = "";
+    [Tooltip("홈 버튼 클릭 시 이동할 홈 씬 이름. 홈이 같은 씬의 패널이면 비워두기")]
+    [SerializeField] private string homeSceneName = "";
 
     // 게임오버 처리를 한 번만 하기 위한 플래그
     private bool gameOverHandled;
@@ -34,6 +37,7 @@ public class GameUI : MonoBehaviour
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (newBestLabel != null) newBestLabel.SetActive(false);
         if (restartButton != null) restartButton.onClick.AddListener(Restart);
+        if (homeButton != null) homeButton.onClick.AddListener(GoHome);
 
         gameOverHandled = false;
         RefreshScore();
@@ -82,6 +86,17 @@ public class GameUI : MonoBehaviour
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         else
             SceneManager.LoadScene(gameSceneName);
+    }
+
+    private void GoHome()
+    {
+        // 홈 화면을 건너뛰지 않도록 플래그 해제
+        GameFlow.SkipHome = false;
+
+        if (string.IsNullOrEmpty(homeSceneName))
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex); // 홈이 같은 씬의 패널인 경우
+        else
+            SceneManager.LoadScene(homeSceneName);                            // 홈이 별도 씬인 경우
     }
 
     // 앱이 백그라운드로 가거나 종료될 때, 게임오버 전이라도 현재 점수를 보존하고 싶다면 사용
