@@ -21,6 +21,10 @@ public class PlayerController : MonoBehaviour
     [Header("Launch Collision")]
     [SerializeField] private float launchIgnoreCollisionTime = 0.15f;
 
+    [Header("Game Over")]
+    [Tooltip("체크하면 Goal에 닿지 못하고 플랫폼에 착지해도 게임오버")]
+    [SerializeField] private bool dieOnMissedLanding = false;
+
     [Header("Debug")]
     [SerializeField] private bool debugLog = false;
 
@@ -226,6 +230,13 @@ public class PlayerController : MonoBehaviour
         if (State != PlayerState.Flying || rb == null)
             return;
 
+        // 미스 착지 = 게임오버 옵션
+        if (dieOnMissedLanding)
+        {
+            Die();
+            return;
+        }
+
         StopMotion();
 
         SetState(PlayerState.Landed);
@@ -262,7 +273,10 @@ public class PlayerController : MonoBehaviour
         RestorePlatformCollision();
 
         if (rb != null)
+        {
             StopMotion();
+            rb.simulated = false;   // 사망 후 더 이상 떨어지거나 충돌하지 않도록
+        }
     }
 
     // =========================================================
