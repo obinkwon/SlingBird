@@ -147,12 +147,25 @@ public class PlayerController : MonoBehaviour
         rb.angularVelocity = 0f;
 
         // 조준 중에는 물리로 움직이지 않도록 고정
+        // (FreezePosition은 물리 시뮬레이션만 막을 뿐, 스크립트로 위치를 옮기는 건 계속 가능)
         rb.constraints =
             originalConstraints |
             RigidbodyConstraints2D.FreezePosition |
             RigidbodyConstraints2D.FreezeRotation;
 
         SetState(PlayerState.Aiming);
+    }
+
+    /// <summary>
+    /// 조준(드래그) 중에 캐릭터를 당기는 지점으로 옮긴다.
+    /// PlayerLauncher가 매 프레임 드래그 위치로 호출한다.
+    /// </summary>
+    public void UpdateAimPosition(Vector2 position)
+    {
+        if (State != PlayerState.Aiming || rb == null)
+            return;
+
+        TeleportTo(position);
     }
 
     // =========================================================

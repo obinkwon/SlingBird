@@ -3,7 +3,7 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// 플레이어를 드래그해서 앵그리버드처럼 발사하는 스크립트.
-/// - 당기는 표현: SlingshotVisual의 밴드 이미지(직선)
+/// - 당기는 표현: SlingshotVisual의 밴드 이미지(직선) + 캐릭터가 당기는 지점을 따라 이동
 /// - 궤적 예측: 점 스프라이트를 포물선 위에 일정 간격으로 찍어 점선처럼 표현
 /// 새총은 스테이지마다 새로 스폰되므로 StageManager가 AttachSlingshot()으로 연결해준다.
 /// 난이도에 따라 StageManager가 SetTrajectoryFade()로 궤적이 사라지는 구간을 조절한다.
@@ -151,8 +151,12 @@ public class PlayerLauncher : MonoBehaviour
         else if (mouse.leftButton.isPressed && isDragging)
         {
             Vector2 clampedDragPos = GetClampedDragPosition(worldPos, pouch);
+
+            // 캐릭터도 밴드 끝(당기는 지점)과 같이 움직인다
+            player.UpdateAimPosition(clampedDragPos);
+
             currentSlingshot.UpdateBands(clampedDragPos);
-            UpdateTrajectoryDots(clampedDragPos, pouch);
+            UpdateTrajectoryDots(clampedDragPos);
         }
         else if (mouse.leftButton.wasReleasedThisFrame && isDragging)
         {
@@ -244,13 +248,15 @@ public class PlayerLauncher : MonoBehaviour
     /// <summary>
     /// 포물선을 촘촘히 시뮬레이션하면서, 이동 거리가 dotSpacing만큼 쌓일 때마다
     /// 점을 하나씩 찍는다. (시간 간격이 아닌 거리 간격이라 점선이 고르게 보임)
+    /// 캐릭터가 실제로 dragPos에서 발사되므로, 궤적도 dragPos에서부터 시작한다.
     /// </summary>
-    private void UpdateTrajectoryDots(Vector2 dragPos, Vector2 pouch)
+    private void UpdateTrajectoryDots(Vector2 dragPos)
     {
         if (dots == null || dots.Length == 0) return;
 
+        Vector2 pouch = currentSlingshot.PouchAnchor.position;
         Vector2 vel = CalculateLaunchVelocity(dragPos, pouch);
-        Vector2 pos = pouch;
+        Vector2 pos = dragPos;
 
         float gravityScale = playerRb != null ? playerRb.gravityScale : 1f;
         Vector2 gravity = Physics2D.gravity * gravityScale;
