@@ -132,23 +132,24 @@ public class PlayerLauncher : MonoBehaviour
 
     private void HandleDragInput()
     {
-        Mouse mouse = Mouse.current;
-        if (mouse == null) return;
+        // 마우스·터치 공통 (Mouse.current는 모바일/시뮬레이터에서 null)
+        Pointer pointer = Pointer.current;
+        if (pointer == null) return;
 
-        Vector2 screenPos = mouse.position.ReadValue();
+        Vector2 screenPos = pointer.position.ReadValue();
         Vector3 worldPos = mainCamera.ScreenToWorldPoint(screenPos);
         worldPos.z = 0f;
 
         Vector2 pouch = currentSlingshot.PouchAnchor.position;
 
-        if (mouse.leftButton.wasPressedThisFrame)
+        if (pointer.press.wasPressedThisFrame)
         {
             player.StartAiming();
 
             // StartAiming이 실제로 성공했을 때만 드래그 시작
             isDragging = player.State == PlayerController.PlayerState.Aiming;
         }
-        else if (mouse.leftButton.isPressed && isDragging)
+        else if (pointer.press.isPressed && isDragging)
         {
             Vector2 clampedDragPos = GetClampedDragPosition(worldPos, pouch);
 
@@ -158,7 +159,7 @@ public class PlayerLauncher : MonoBehaviour
             currentSlingshot.UpdateBands(clampedDragPos);
             UpdateTrajectoryDots(clampedDragPos);
         }
-        else if (mouse.leftButton.wasReleasedThisFrame && isDragging)
+        else if (pointer.press.wasReleasedThisFrame && isDragging)
         {
             isDragging = false;
             Vector2 clampedDragPos = GetClampedDragPosition(worldPos, pouch);
