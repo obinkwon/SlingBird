@@ -59,7 +59,7 @@ public class GameUI : MonoBehaviour
     private void RefreshScore()
     {
         if (scoreText != null)
-            scoreText.text = stageManager.GetScore().ToString();
+            scoreText.text = $"SCORE : {stageManager.GetScore()}";
     }
 
     private void HandleGameOver()
@@ -71,8 +71,8 @@ public class GameUI : MonoBehaviour
         // ★ 점수 저장 (최고 점수 갱신 여부 반환)
         bool isNewBest = ScoreSaver.SaveIfBest(score);
 
-        if (finalScoreText != null) finalScoreText.text = $"SCORE  {score}";
-        if (bestScoreText != null) bestScoreText.text = $"BEST  {ScoreSaver.BestScore}";
+        if (finalScoreText != null) finalScoreText.text = $"SCORE : {score}";
+        if (bestScoreText != null) bestScoreText.text = $"BEST : {ScoreSaver.BestScore}";
         if (newBestLabel != null) newBestLabel.SetActive(isNewBest);
         if (gameOverPanel != null) gameOverPanel.SetActive(true);
     }
