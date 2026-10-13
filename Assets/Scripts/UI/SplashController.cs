@@ -11,10 +11,14 @@ public class SplashController : MonoBehaviour
 
     private IEnumerator Start()
     {
-        logo.alpha = 0f;
-        yield return Fade(0f, 1f);
-        yield return new WaitForSeconds(holdTime);
-        yield return Fade(1f, 0f);
+        // 로고가 없으면 연출 없이 바로 다음 씬으로 (앱 기본 스플래시만 보여주는 경우)
+        if (logo != null)
+        {
+            logo.alpha = 0f;
+            yield return Fade(0f, 1f);
+            yield return new WaitForSeconds(holdTime);
+            yield return Fade(1f, 0f);
+        }
         SceneManager.LoadScene(nextScene);
     }
 
