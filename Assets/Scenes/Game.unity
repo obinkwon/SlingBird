@@ -594,7 +594,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::StageManager
   player: {fileID: 1001192748}
   playerLauncher: {fileID: 1001192747}
-  startPlatformPrefab: {fileID: 2563005468605709032, guid: d6f0bd811f7e5a34a9f6f99cbf646adc, type: 3}
   platformPrefab: {fileID: 2563005468605709032, guid: d6f0bd811f7e5a34a9f6f99cbf646adc, type: 3}
   goalPrefab: {fileID: 939786487079494382, guid: 84617954055d23f4aab811400d81eba6, type: 3}
   slingshotPrefab: {fileID: 441018125023574620, guid: 676cde5b0c765c746b25ac342cd625ca, type: 3}

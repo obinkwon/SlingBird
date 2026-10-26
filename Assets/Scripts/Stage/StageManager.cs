@@ -5,7 +5,6 @@ public class StageManager : MonoBehaviour
     [Header("References")]
     [SerializeField] private PlayerController player;
     [SerializeField] private PlayerLauncher playerLauncher;
-    [SerializeField] private GameObject startPlatformPrefab;
     [SerializeField] private GameObject platformPrefab;
     [SerializeField] private GameObject goalPrefab;
     [SerializeField] private GameObject slingshotPrefab; // SlingshotVisual이 붙은 Y자 새총 프리팹
@@ -354,18 +353,14 @@ public class StageManager : MonoBehaviour
 
     private GameObject SpawnPlatform(Vector2 position)
     {
-        GameObject prefab = platformPrefab != null
-            ? platformPrefab
-            : startPlatformPrefab;
-
-        if (prefab == null)
+        if (platformPrefab == null)
         {
             Debug.LogError("StageManager: Platform Prefab이 없습니다.");
             return null;
         }
 
         GameObject platform =
-            Instantiate(prefab, position, Quaternion.identity);
+            Instantiate(platformPrefab, position, Quaternion.identity);
 
         // Collider2D.bounds가 생성 직후 옛날 값이 되지 않도록 동기화
         Physics2D.SyncTransforms();

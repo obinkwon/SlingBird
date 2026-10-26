@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 /// <summary>
@@ -20,6 +22,8 @@ public class PlayerLauncher : MonoBehaviour
     [SerializeField] private float launchPower = 6f;
     [Tooltip("이 거리보다 적게 당기고 놓으면 발사하지 않고 조준을 취소합니다.")]
     [SerializeField] private float minPullDistance = 0.3f;
+    [Tooltip("캐릭터 중심에서 이 거리(월드 단위) 안을 눌러야 조준을 시작합니다. 손가락 터치를 고려해 캐릭터보다 조금 크게.")]
+    [SerializeField] private float grabRadius = 1f;
 
     [Header("궤적 점선 (점 이미지)")]
     [Tooltip("점 하나로 쓸 스프라이트 (작은 원 이미지)")]
@@ -134,6 +138,18 @@ public class PlayerLauncher : MonoBehaviour
         HandleDragInput();
     }
 
+    // IsPointerOverGameObject는 터치 첫 프레임에 이전 상태를 돌려줄 수 있어서 직접 UI 레이캐스트한다
+    private static readonly List<RaycastResult> uiHits = new();
+
+    private bool IsOverUI(Vector2 screenPos)
+    {
+        if (EventSystem.current == null) return false;
+
+        var eventData = new PointerEventData(EventSystem.current) { position = screenPos };
+        EventSystem.current.RaycastAll(eventData, uiHits);
+        return uiHits.Count > 0;
+    }
+
     private void HandleDragInput()
     {
         // 마우스·터치 공통 (Mouse.current는 모바일/시뮬레이터에서 null)
@@ -148,6 +164,14 @@ public class PlayerLauncher : MonoBehaviour
 
         if (pointer.press.wasPressedThisFrame)
         {
+            // 캐릭터 근처를 누른 경우에만 조준 시작 (배경 클릭 무시)
+            if (Vector2.Distance(worldPos, player.transform.position) > grabRadius)
+                return;
+
+            // UI 버튼 등을 누른 경우 조준하지 않음
+            if (IsOverUI(screenPos))
+                return;
+
             player.StartAiming();
 
             // StartAiming이 실제로 성공했을 때만 드래그 시작
