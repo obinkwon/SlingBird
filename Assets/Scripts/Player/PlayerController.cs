@@ -192,6 +192,7 @@ public class PlayerController : MonoBehaviour
         rb.linearVelocity = Vector2.ClampMagnitude(velocity, maxSpeed);
 
         SetState(PlayerState.Flying);
+        AudioManager.PlayLaunch();
 
         Log($"Player Launched | Velocity: {rb.linearVelocity}");
     }
@@ -282,6 +283,8 @@ public class PlayerController : MonoBehaviour
             return;
 
         SetState(PlayerState.Dead);
+        AudioManager.PlayDead();
+        AudioManager.Vibrate();
 
         RestorePlatformCollision();
 

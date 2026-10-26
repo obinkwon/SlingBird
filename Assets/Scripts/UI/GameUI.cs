@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 
@@ -23,6 +24,11 @@ public class GameUI : MonoBehaviour
     [SerializeField] private Button restartButton;
     [SerializeField] private Button homeButton;
 
+    [Header("일시정지 UI (안드로이드 뒤로가기 / Esc)")]
+    [SerializeField] private GameObject pausePanel;
+    [SerializeField] private Button resumeButton;
+    [SerializeField] private Button pauseHomeButton;
+
     [Header("씬")]
     [Tooltip("재시작 시 이동할 게임 씬 이름. 비워두면 현재 씬을 다시 로드")]
     [SerializeField] private string gameSceneName = "";
@@ -38,14 +44,30 @@ public class GameUI : MonoBehaviour
         if (newBestLabel != null) newBestLabel.SetActive(false);
         if (restartButton != null) restartButton.onClick.AddListener(Restart);
         if (homeButton != null) homeButton.onClick.AddListener(GoHome);
+        if (pausePanel != null) pausePanel.SetActive(false);
+        if (resumeButton != null) resumeButton.onClick.AddListener(Resume);
+        if (pauseHomeButton != null) pauseHomeButton.onClick.AddListener(GoHome);
 
         gameOverHandled = false;
         RefreshScore();
     }
 
+    private void OnDestroy()
+    {
+        // 일시정지 상태로 씬을 떠나도 다음 씬이 멈춰 있지 않도록
+        Time.timeScale = 1f;
+    }
+
     private void Update()
     {
         if (gameOverHandled) return;
+
+        // 안드로이드 뒤로가기 버튼은 Input System에서 Esc 키로 들어온다
+        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+        {
+            if (Time.timeScale == 0f) Resume();
+            else Pause();
+        }
 
         RefreshScore();
 
@@ -75,6 +97,18 @@ public class GameUI : MonoBehaviour
         if (bestScoreText != null) bestScoreText.text = $"BEST : {ScoreSaver.BestScore}";
         if (newBestLabel != null) newBestLabel.SetActive(isNewBest);
         if (gameOverPanel != null) gameOverPanel.SetActive(true);
+    }
+
+    private void Pause()
+    {
+        Time.timeScale = 0f;
+        if (pausePanel != null) pausePanel.SetActive(true);
+    }
+
+    private void Resume()
+    {
+        Time.timeScale = 1f;
+        if (pausePanel != null) pausePanel.SetActive(false);
     }
 
     private void Restart()

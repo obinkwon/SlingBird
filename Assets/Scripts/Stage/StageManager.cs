@@ -166,6 +166,7 @@ public class StageManager : MonoBehaviour
 
         stageCount++;
         score += scorePerGoal;
+        AudioManager.PlayGoal();
 
         // 새 스테이지 난이도에 맞춰 궤적 페이드 갱신
         ApplyTrajectoryDifficulty();

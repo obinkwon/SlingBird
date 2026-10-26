@@ -110,6 +110,10 @@ public class PlayerLauncher : MonoBehaviour
 
     private void Update()
     {
+        // 일시정지 중(GameUI가 timeScale을 0으로 둠)에는 새총 입력을 받지 않는다
+        if (Time.timeScale == 0f)
+            return;
+
         if (currentSlingshot == null)
             return; // 아직 새총이 연결되지 않음 (스폰 대기 등)
 

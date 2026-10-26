@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -33,6 +34,15 @@ public class HomeUI : MonoBehaviour
         if (settingsButton != null) settingsButton.onClick.AddListener(OpenSettings);
         if (closeSettingsButton != null) closeSettingsButton.onClick.AddListener(CloseSettings);
         if (quitButton != null) quitButton.onClick.AddListener(QuitGame);
+    }
+
+    private void Update()
+    {
+        // 안드로이드 뒤로가기(Esc): 설정 창이 열려 있으면 닫고, 아니면 앱 종료
+        if (Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame) return;
+
+        if (settingsPanel != null && settingsPanel.activeSelf) CloseSettings();
+        else QuitGame();
     }
 
     private void OnDestroy()
