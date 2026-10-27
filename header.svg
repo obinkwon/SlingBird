@@ -53,5 +53,5 @@
   <rect class="underline" x="316" y="164" width="168" height="2" fill="#ffffff" rx="1"/>
 
   <!-- Meta line -->
-  <text class="meta" x="400" y="200" text-anchor="middle" fill="#a5a5b3" font-family="ui-monospace, monospace" font-size="13" letter-spacing="2">이력서 템플릿 만들어서 출력하는 프로그램</text>
+  <text class="meta" x="400" y="200" text-anchor="middle" fill="#a5a5b3" font-family="ui-monospace, monospace" font-size="13" letter-spacing="2">새가 장애물을 피해 날아가는 게임</text>
 </svg>
