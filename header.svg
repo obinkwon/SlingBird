@@ -47,7 +47,7 @@
   </g>
 
   <!-- Name -->
-  <text class="name" x="400" y="138" text-anchor="middle" fill="#f7f7fb" font-family='"Inter", system-ui, sans-serif' font-size="56" font-weight="700" letter-spacing="-1.5">Resume</text>
+  <text class="name" x="400" y="138" text-anchor="middle" fill="#f7f7fb" font-family='"Inter", system-ui, sans-serif' font-size="56" font-weight="700" letter-spacing="-1.5">SlingBird</text>
 
   <!-- Accent underline -->
   <rect class="underline" x="316" y="164" width="168" height="2" fill="#ffffff" rx="1"/>
