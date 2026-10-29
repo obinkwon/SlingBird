@@ -1,0 +1,2 @@
+json_key_file(File.expand_path("sling-bird-service-account.json", __dir__)) # 서비스 어카운트 키 json (.gitignore 처리됨)
+package_name("com.game.slingbird") # 패키지명

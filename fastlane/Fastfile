@@ -1,0 +1,71 @@
+default_platform(:android)
+
+PROJECT_DIR = File.expand_path("..", __dir__)
+AAB_PATH = File.join(PROJECT_DIR, "build", "android", "SlingBird.aab")
+UNITY = ENV["UNITY_PATH"] || "C:/Program Files/Unity/Hub/Editor/6000.5.10f1/Editor/Unity.exe"
+
+# local.properties(git 무시됨)의 서명 정보를 환경변수로 넘김. 이미 설정된 환경변수가 우선
+LOCAL_PROPS = File.join(PROJECT_DIR, "local.properties")
+if File.exist?(LOCAL_PROPS)
+  props = File.readlines(LOCAL_PROPS, chomp: true)
+              .reject { |l| l.strip.empty? || l.lstrip.start_with?("#", "!") }
+              .map { |l| l.split("=", 2).map { |s| s.strip.gsub(/\\([:=\\])/, '\1') } } # E\:\\... 형식 이스케이프만 해제, E:\unity 같은 평범한 경로는 그대로
+              .to_h
+  store_file = props["STORE_FILE"]
+  store_file = File.expand_path(store_file, PROJECT_DIR) if store_file
+  ENV["SLINGBIRD_KEYSTORE_PATH"] ||= store_file
+  ENV["SLINGBIRD_KEYSTORE_PASS"] ||= props["STORE_PASSWORD"]
+  ENV["SLINGBIRD_KEY_ALIAS"] ||= props["KEY_ALIAS"]
+  ENV["SLINGBIRD_KEY_PASS"] ||= props["KEY_PASSWORD"]
+end
+
+platform :android do
+  desc "AAB만 빌드 (build/android/SlingBird.aab)"
+  lane :build do
+    # versionCode는 매 업로드마다 커져야 함 → 분 단위 시각으로 자동 증가 (상한 2,100,000,000까지 여유 충분)
+    version_code = Time.now.to_i / 60
+
+    sh(UNITY, "-batchmode", "-quit",
+       "-projectPath", PROJECT_DIR,
+       "-executeMethod", "BuildScript.BuildAndroidAab",
+       "-buildPath", AAB_PATH,
+       "-versionCode", version_code.to_s,
+       "-logFile", "-")
+
+    UI.success("AAB: #{AAB_PATH} (versionCode #{version_code})")
+  end
+
+  desc "AAB 빌드 후 Google Play 내부 테스트(internal) 트랙에 업로드"
+  lane :internal do
+    build
+    # 앱이 아직 한 번도 출시 안 된(초안) 상태면 draft만 허용됨. 출시 후엔 "completed"로 바꾸기
+    upload_aab("internal", "draft")
+  end
+
+  desc "beta 배포"
+  lane :beta do
+    build
+    upload_aab("beta", "draft")
+    puts "Beta 배포 완료"
+  end
+
+  desc "Production 배포"
+  lane :production do
+    build
+    upload_aab("production", "completed") # 바로 심사 제출, 임시 제출은 "draft"
+    puts "Production 배포 완료"
+  end
+end
+
+# versionCode가 분 단위 시각이라 changelogs/<versionCode>.txt를 미리 만들 수 없음 → changelog 업로드 생략
+def upload_aab(track, release_status)
+  upload_to_play_store(
+    track: track,
+    aab: AAB_PATH,
+    release_status: release_status,
+    skip_upload_metadata: true,
+    skip_upload_changelogs: true,
+    skip_upload_images: true,
+    skip_upload_screenshots: true
+  )
+end

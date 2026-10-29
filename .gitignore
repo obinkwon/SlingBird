@@ -113,3 +113,11 @@ InitTestScene*.unity*
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
 CLAUDE.md
+
+# fastlane / Android 서명 (비밀 정보)
+fastlane/play-service-account.json
+fastlane/report.xml
+*.keystore
+*.jks
+local.properties
+fastlane/sling-bird-service-account.json
