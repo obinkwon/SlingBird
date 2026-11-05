@@ -11,6 +11,9 @@ public class SplashController : MonoBehaviour
 
     private IEnumerator Start()
     {
+        // 안드로이드 기본값은 30fps. 첫 씬에서 한 번만 지정하면 씬이 바뀌어도 유지된다
+        Application.targetFrameRate = 60;
+
         // 로고가 없으면 연출 없이 바로 다음 씬으로 (앱 기본 스플래시만 보여주는 경우)
         if (logo != null)
         {

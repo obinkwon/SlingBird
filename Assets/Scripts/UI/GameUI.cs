@@ -38,6 +38,9 @@ public class GameUI : MonoBehaviour
     // 게임오버 처리를 한 번만 하기 위한 플래그
     private bool gameOverHandled;
 
+    // 점수가 바뀔 때만 문자열을 다시 만들기 위한 캐시
+    private int shownScore = -1;
+
     private void Start()
     {
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
@@ -80,8 +83,11 @@ public class GameUI : MonoBehaviour
 
     private void RefreshScore()
     {
-        if (scoreText != null)
-            scoreText.text = $"SCORE : {stageManager.GetScore()}";
+        int score = stageManager.GetScore();
+        if (scoreText == null || score == shownScore) return;
+
+        shownScore = score;
+        scoreText.text = $"SCORE : {score}";
     }
 
     private void HandleGameOver()
