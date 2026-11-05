@@ -20,7 +20,11 @@ public class SettingsButtons : MonoBehaviour
         if (bgmButton != null) bgmButton.onClick.AddListener(ToggleBgm);
         if (sfxButton != null) sfxButton.onClick.AddListener(ToggleSfx);
         if (vibrationButton != null) vibrationButton.onClick.AddListener(ToggleVibration);
+    }
 
+    // 게임 씬에는 설정 창과 일시정지 창이 함께 있으므로, 창이 열릴 때마다 현재 값으로 맞춘다
+    private void OnEnable()
+    {
         RefreshLabels();
     }
 
