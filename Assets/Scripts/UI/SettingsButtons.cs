@@ -11,6 +11,10 @@ public class SettingsButtons : MonoBehaviour
     [SerializeField] private Button sfxButton;
     [SerializeField] private Button vibrationButton;
 
+    // 켜짐/꺼짐을 글자를 읽지 않아도 알 수 있게 버튼 색으로도 구분한다
+    private static readonly Color OnColor = new Color(0.5f, 0.83f, 0.37f);
+    private static readonly Color OffColor = new Color(0.72f, 0.72f, 0.72f);
+
     private void Start()
     {
         if (bgmButton != null) bgmButton.onClick.AddListener(ToggleBgm);
@@ -57,6 +61,8 @@ public class SettingsButtons : MonoBehaviour
     private void SetLabel(Button button, string title, bool on)
     {
         if (button == null) return;
+
+        if (button.image != null) button.image.color = on ? OnColor : OffColor;
 
         Text label = button.GetComponentInChildren<Text>();
         if (label == null) return;
