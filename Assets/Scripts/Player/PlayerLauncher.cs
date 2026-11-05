@@ -128,8 +128,8 @@ public class PlayerLauncher : MonoBehaviour
 
         if (!canInteract)
         {
-            // 비행 중/사망 등: 밴드·점선 숨기고 드래그 상태 초기화
-            currentSlingshot.HideBands();
+            // 비행 중/사망 등: 밴드는 튕겼다가 제자리로, 점선은 숨기고 드래그 상태 초기화
+            currentSlingshot.UpdateReleasedBands();
             isDragging = false;
             HideDots();
             return;
@@ -195,7 +195,8 @@ public class PlayerLauncher : MonoBehaviour
 
             if (Vector2.Distance(clampedDragPos, pouch) < minPullDistance)
             {
-                // 너무 조금 당김 -> 발사 취소하고 대기 상태로 복귀
+                // 너무 조금 당김 -> 발사 취소하고 대기 상태로 복귀 (캐릭터도 밴드와 함께 제자리로)
+                player.UpdateAimPosition(pouch);
                 player.ResetReady();
                 currentSlingshot.UpdateBands(pouch);
                 return;
@@ -236,7 +237,7 @@ public class PlayerLauncher : MonoBehaviour
     private void LaunchPlayer(Vector2 dragPos, Vector2 pouch)
     {
         player.Launch(CalculateLaunchVelocity(dragPos, pouch));
-        currentSlingshot.HideBands();
+        currentSlingshot.ReleaseBands(dragPos);
         // 새총 참조는 유지: 미스 후 같은 플랫폼에 다시 Landed 되면 재조준 가능.
         // 다음 스테이지에서는 StageManager가 AttachSlingshot으로 교체해준다.
     }
