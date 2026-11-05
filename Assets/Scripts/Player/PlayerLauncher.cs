@@ -206,6 +206,10 @@ public class PlayerLauncher : MonoBehaviour
         }
         else if (!isDragging)
         {
+            // 미스 후 출발 플랫폼의 다른 자리에 착지했으면 새총으로 되돌려 다시 쏘게 한다
+            if (player.IsLanded() && Vector2.Distance(player.transform.position, pouch) > 0.3f)
+                player.SetStartPosition(pouch);
+
             // 대기 상태: 밴드가 주머니 위치에 걸려 있는 기본 모습
             currentSlingshot.UpdateBands(pouch);
         }

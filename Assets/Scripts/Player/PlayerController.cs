@@ -98,11 +98,6 @@ public class PlayerController : MonoBehaviour
             : "Current Platform Cleared");
     }
 
-    public bool IsCurrentPlatform(Platform platform)
-    {
-        return currentPlatform == platform;
-    }
-
     // =========================================================
     // Position
     // =========================================================
@@ -187,7 +182,9 @@ public class PlayerController : MonoBehaviour
         rb.constraints = originalConstraints;
         rb.angularVelocity = 0f;
 
-        IgnoreCurrentPlatformCollision();
+        // 아래로 쏘면 출발 플랫폼을 뚫고 떨어지지 않고 부딪혀서 착지해야 한다
+        if (velocity.normalized.y > -0.5f)
+            IgnoreCurrentPlatformCollision();
 
         rb.linearVelocity = Vector2.ClampMagnitude(velocity, maxSpeed);
 

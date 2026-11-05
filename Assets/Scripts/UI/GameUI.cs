@@ -26,6 +26,8 @@ public class GameUI : MonoBehaviour
 
     [Header("일시정지 UI (안드로이드 뒤로가기 / Esc)")]
     [SerializeField] private GameObject pausePanel;
+    [Tooltip("우측 상단 설정 버튼. 일시정지 창(BGM/효과음/진동 포함)을 연다")]
+    [SerializeField] private Button settingsButton;
     [SerializeField] private Button resumeButton;
     [SerializeField] private Button pauseHomeButton;
 
@@ -48,6 +50,7 @@ public class GameUI : MonoBehaviour
         if (restartButton != null) restartButton.onClick.AddListener(Restart);
         if (homeButton != null) homeButton.onClick.AddListener(GoHome);
         if (pausePanel != null) pausePanel.SetActive(false);
+        if (settingsButton != null) settingsButton.onClick.AddListener(Pause);
         if (resumeButton != null) resumeButton.onClick.AddListener(Resume);
         if (pauseHomeButton != null) pauseHomeButton.onClick.AddListener(GoHome);
 

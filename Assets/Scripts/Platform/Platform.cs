@@ -9,7 +9,8 @@ public class Platform : MonoBehaviour
     [SerializeField] private float minimumLandingNormalY = 0.5f;
 
     [Header("Landing Safety")]
-    [SerializeField] private float minimumDownwardVelocity = -0.1f;
+    [Tooltip("위쪽 속도가 이 값보다 크면 착지로 치지 않는다")]
+    [SerializeField] private float maximumLandingVelocityY = 0.1f;
 
     public bool CanLand => canLand;
 
@@ -58,15 +59,6 @@ public class Platform : MonoBehaviour
             return;
 
         // =====================================================
-        // 현재 출발 플랫폼과 충돌한 경우
-        // =====================================================
-
-        if (player.IsCurrentPlatform(this))
-        {
-            return;
-        }
-
-        // =====================================================
         // Flying 상태인지 확인
         // =====================================================
 
@@ -91,17 +83,19 @@ public class Platform : MonoBehaviour
             return;
 
         // =====================================================
-        // 아래 방향으로 이동 중인지 확인
+        // 위로 올라가는 중이 아닌지 확인
+        // (충돌 콜백 시점에는 이미 속도가 0에 가까워서 "아래로 이동 중"으로 검사하면 놓친다)
         // =====================================================
 
         if (playerRb.linearVelocity.y >
-            minimumDownwardVelocity)
+            maximumLandingVelocityY)
         {
             return;
         }
 
         // =====================================================
-        // Contact Normal 확인
+        // 접촉 방향 확인: 플레이어(원형 콜라이더) 중심이 접촉점보다 위에 있어야 윗면 착지다
+        // (contact.normal은 부호가 콜백을 받는 쪽 기준이라 플랫폼에서 보면 아래를 향한다)
         // =====================================================
 
         for (int i = 0;
@@ -111,7 +105,10 @@ public class Platform : MonoBehaviour
             ContactPoint2D contact =
                 collision.GetContact(i);
 
-            if (contact.normal.y >=
+            Vector2 fromContact =
+                (playerRb.position - contact.point).normalized;
+
+            if (fromContact.y >=
                 minimumLandingNormalY)
             {
                 OnPlayerLanded(player);

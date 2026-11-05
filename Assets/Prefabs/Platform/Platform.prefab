@@ -154,4 +154,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Platform
   canLand: 1
   minimumLandingNormalY: 0.5
-  minimumDownwardVelocity: -0.1
+  maximumLandingVelocityY: 0.1
