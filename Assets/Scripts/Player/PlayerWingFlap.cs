@@ -3,7 +3,6 @@ using UnityEngine;
 /// <summary>
 /// 비행 중에만 날갯짓 스프라이트를 반복 재생하고, 착지/사망하면 원래 스프라이트로 되돌린다.
 /// </summary>
-// ponytail: 프레임이 스킨과 무관하게 고정이다. 스킨을 실제로 쓰게 되면(PlayerSkinApplier를 씬에 추가) PlayerSkinData로 옮길 것.
 [RequireComponent(typeof(PlayerController), typeof(SpriteRenderer))]
 public class PlayerWingFlap : MonoBehaviour
 {
@@ -13,6 +12,7 @@ public class PlayerWingFlap : MonoBehaviour
     [SerializeField] private float framesPerSecond = 12f;
 
     private PlayerController player;
+    private PlayerSkinApplier skinApplier;
     private SpriteRenderer spriteRenderer;
     private Sprite idleSprite;
     private float elapsed;
@@ -21,6 +21,7 @@ public class PlayerWingFlap : MonoBehaviour
     private void Awake()
     {
         player = GetComponent<PlayerController>();
+        skinApplier = GetComponent<PlayerSkinApplier>();
         spriteRenderer = GetComponent<SpriteRenderer>();
         idleSprite = spriteRenderer.sprite;
     }
@@ -46,7 +47,18 @@ public class PlayerWingFlap : MonoBehaviour
         else if (wasFlying)
         {
             wasFlying = false;
-            spriteRenderer.sprite = idleSprite;
+
+            // 스킨이 적용돼 있으면 상태별 스킨 스프라이트(착지/사망)로, 아니면 원래 스프라이트로
+            if (skinApplier != null && skinApplier.HasSkin)
+                skinApplier.Refresh();
+            else
+                spriteRenderer.sprite = idleSprite;
         }
+    }
+
+    /// <summary>스킨이 바뀔 때 PlayerSkinApplier가 호출</summary>
+    public void SetFrames(Sprite[] frames)
+    {
+        flyingFrames = frames;
     }
 }

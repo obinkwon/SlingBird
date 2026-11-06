@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aaaa8ae32b49e8e4b964ee16fc6611e8, type: 3}
+  m_Name: Default
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerSkinData
+  skinId: default
+  skinName: Default
+  readySprite: {fileID: 21300000, guid: 237470d3881c463fbffbe122f0168039, type: 3}
+  aimingSprite: {fileID: 0}
+  flyingSprite: {fileID: 21300000, guid: 237470d3881c463fbffbe122f0168039, type: 3}
+  landedSprite: {fileID: 0}
+  deadSprite: {fileID: 21300000, guid: 237470d3881c463fbffbe122f0168039, type: 3}
+  flyingFrames:
+  - {fileID: 21300000, guid: 237470d3881c463fbffbe122f0168039, type: 3}
+  - {fileID: 21300000, guid: b578f4e4afc744709154c66f0a1f35a1, type: 3}
+  - {fileID: 21300000, guid: b3756562a1f14c4d9c0793c2024f4157, type: 3}
+  - {fileID: 21300000, guid: b1ba257804f34721b19a0a594157d355, type: 3}
+  price: 0
+  thumbnail: {fileID: 21300000, guid: 237470d3881c463fbffbe122f0168039, type: 3}

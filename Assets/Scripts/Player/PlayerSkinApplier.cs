@@ -7,11 +7,15 @@ public class PlayerSkinApplier : MonoBehaviour
     [SerializeField] private PlayerSkinData defaultSkin;
 
     private PlayerController playerController;
+    private PlayerWingFlap wingFlap;
     private PlayerSkinData currentSkin;
+
+    public bool HasSkin => currentSkin != null;
 
     private void Awake()
     {
         playerController = GetComponent<PlayerController>();
+        wingFlap = GetComponent<PlayerWingFlap>();
 
         if (spriteRenderer == null)
             spriteRenderer = GetComponent<SpriteRenderer>();
@@ -47,6 +51,18 @@ public class PlayerSkinApplier : MonoBehaviour
             skin = defaultSkin;
 
         currentSkin = skin;
+
+        // 스킨의 날갯짓 프레임으로 교체. 비어 있으면 날갯짓 없이 flyingSprite만 보인다.
+        // (스킨이 없을 때는 PlayerWingFlap의 기본 프레임을 그대로 쓴다)
+        if (wingFlap != null && skin != null)
+            wingFlap.SetFrames(skin.flyingFrames);
+
+        Refresh();
+    }
+
+    /// <summary>현재 상태에 맞는 스킨 스프라이트로 다시 맞춘다 (날갯짓이 끝났을 때 등)</summary>
+    public void Refresh()
+    {
         UpdateSprite(playerController.State);
     }
 

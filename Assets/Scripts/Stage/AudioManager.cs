@@ -16,6 +16,7 @@ public class AudioManager : MonoBehaviour
     [SerializeField] private AudioClip launchClip;
     [SerializeField] private AudioClip goalClip;
     [SerializeField] private AudioClip deadClip;
+    [SerializeField] private AudioClip coinClip;
 
     private const string BgmKey = "BgmOn";
     private const string SfxKey = "SfxOn";
@@ -71,6 +72,7 @@ public class AudioManager : MonoBehaviour
     public static void PlayLaunch() => PlaySfx(Instance != null ? Instance.launchClip : null);
     public static void PlayGoal() => PlaySfx(Instance != null ? Instance.goalClip : null);
     public static void PlayDead() => PlaySfx(Instance != null ? Instance.deadClip : null);
+    public static void PlayCoin() => PlaySfx(Instance != null ? Instance.coinClip : null);
 
     public static void Vibrate()
     {

@@ -14,6 +14,8 @@ public class HomeUI : MonoBehaviour
     [SerializeField] private Button quitButton;
     [SerializeField] private GameObject settingsPanel;
     [SerializeField] private Button closeSettingsButton;
+    [SerializeField] private Button shopButton;
+    [SerializeField] private ShopUI shopPanel;
 
     [Header("Layout")]
     [Tooltip("세 버튼 공통 크기")]
@@ -22,6 +24,7 @@ public class HomeUI : MonoBehaviour
     [SerializeField] private Vector2 startButtonPosition = new Vector2(0f, 0f);
     [SerializeField] private Vector2 settingsButtonPosition = new Vector2(0f, -140f);
     [SerializeField] private Vector2 quitButtonPosition = new Vector2(0f, -280f);
+    [SerializeField] private Vector2 shopButtonPosition = new Vector2(0f, -420f);
 
     private void Start()
     {
@@ -30,10 +33,14 @@ public class HomeUI : MonoBehaviour
         if (settingsPanel != null)
             settingsPanel.SetActive(false);
 
+        if (shopPanel != null)
+            shopPanel.Close();
+
         if (startButton != null) startButton.onClick.AddListener(StartGame);
         if (settingsButton != null) settingsButton.onClick.AddListener(OpenSettings);
         if (closeSettingsButton != null) closeSettingsButton.onClick.AddListener(CloseSettings);
         if (quitButton != null) quitButton.onClick.AddListener(QuitGame);
+        if (shopButton != null) shopButton.onClick.AddListener(OpenShop);
     }
 
     private void Update()
@@ -41,7 +48,8 @@ public class HomeUI : MonoBehaviour
         // 안드로이드 뒤로가기(Esc): 설정 창이 열려 있으면 닫고, 아니면 앱 종료
         if (Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame) return;
 
-        if (settingsPanel != null && settingsPanel.activeSelf) CloseSettings();
+        if (shopPanel != null && shopPanel.IsOpen) shopPanel.Close();
+        else if (settingsPanel != null && settingsPanel.activeSelf) CloseSettings();
         else QuitGame();
     }
 
@@ -51,6 +59,7 @@ public class HomeUI : MonoBehaviour
         if (settingsButton != null) settingsButton.onClick.RemoveListener(OpenSettings);
         if (closeSettingsButton != null) closeSettingsButton.onClick.RemoveListener(CloseSettings);
         if (quitButton != null) quitButton.onClick.RemoveListener(QuitGame);
+        if (shopButton != null) shopButton.onClick.RemoveListener(OpenShop);
     }
 
     // 인스펙터 우클릭 메뉴로 플레이 없이도 배치를 미리 볼 수 있다
@@ -60,6 +69,7 @@ public class HomeUI : MonoBehaviour
         Place(startButton, startButtonPosition);
         Place(settingsButton, settingsButtonPosition);
         Place(quitButton, quitButtonPosition);
+        Place(shopButton, shopButtonPosition);
     }
 
     private void Place(Button button, Vector2 position)
@@ -77,6 +87,11 @@ public class HomeUI : MonoBehaviour
     private void OpenSettings()
     {
         if (settingsPanel != null) settingsPanel.SetActive(true);
+    }
+
+    private void OpenShop()
+    {
+        if (shopPanel != null) shopPanel.Open();
     }
 
     private void CloseSettings()

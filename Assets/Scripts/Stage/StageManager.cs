@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class StageManager : MonoBehaviour
@@ -8,6 +9,7 @@ public class StageManager : MonoBehaviour
     [SerializeField] private GameObject platformPrefab;
     [SerializeField] private GameObject goalPrefab;
     [SerializeField] private GameObject slingshotPrefab; // SlingshotVisual이 붙은 Y자 새총 프리팹
+    [SerializeField] private GameObject coinPrefab;      // Coin이 붙은 트리거 프리팹 (비워두면 코인 없음)
 
     [Header("Start")]
     [SerializeField] private Vector2 startPlatformPosition = new Vector2(0f, -1f);
@@ -44,6 +46,13 @@ public class StageManager : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] private float fadeEndAtMax = 0.45f;
 
+    [Header("Coins")]
+    [Tooltip("스테이지마다 배치할 코인 개수 범위")]
+    [SerializeField] private int minCoinsPerStage = 1;
+    [SerializeField] private int maxCoinsPerStage = 3;
+    [Tooltip("도달 가능한 궤적에서 코인을 위아래로 벗어나게 할 최대 거리 (클수록 노리기 어려움)")]
+    [SerializeField] private float coinPathOffset = 0.6f;
+
     [Header("Score")]
     [SerializeField] private int scorePerGoal = 100;
 
@@ -65,6 +74,7 @@ public class StageManager : MonoBehaviour
     private GameObject currentPlatform;
     private GameObject currentGoal;
     private GameObject currentSlingshot;
+    private readonly List<GameObject> currentCoins = new List<GameObject>();
 
     // CameraFollow가 목표를 화면에 함께 담을 때 사용
     public GameObject CurrentGoal => currentGoal;
@@ -180,6 +190,7 @@ public class StageManager : MonoBehaviour
         DestroyAndClear(ref currentPlatform);
         DestroyAndClear(ref currentGoal);
         DestroyAndClear(ref currentSlingshot);
+        ClearCoins();
 
         // Goal 위치에 새 플랫폼 생성 후 등록
         currentPlatform = SpawnPlatform(goalPosition);
@@ -199,7 +210,9 @@ public class StageManager : MonoBehaviour
 
     private void SpawnNextGoal()
     {
-        SpawnGoal(GetNextGoalPosition());
+        Vector2 goalPosition = GetNextGoalPosition();
+        SpawnGoal(goalPosition);
+        SpawnCoins(goalPosition);
     }
 
     // =========================================================
@@ -307,16 +320,30 @@ public class StageManager : MonoBehaviour
         if (playerRb == null)
             return true;
 
+        // 중력이 없으면 직선 발사로 항상 도달 가능
+        if (GetGravity() <= 0.0001f)
+            return goalPosition.x - origin.x > 0.01f;
+
+        return TrySolveLaunch(origin, goalPosition, out _);
+    }
+
+    private float GetGravity() =>
+        playerRb != null ? -Physics2D.gravity.y * playerRb.gravityScale : 0f;
+
+    // 목표를 지나는 발사 각도(tan)를 구한다. 해가 둘이면 무작위로 하나를 고른다.
+    private bool TrySolveLaunch(Vector2 origin, Vector2 goalPosition, out float launchTan)
+    {
+        launchTan = 0f;
+
         Vector2 d = goalPosition - origin;
 
         if (d.x <= 0.01f)
             return false;
 
-        float g = -Physics2D.gravity.y * playerRb.gravityScale;
+        float g = GetGravity();
 
-        // 중력이 없으면 직선 발사로 항상 도달 가능
         if (g <= 0.0001f)
-            return true;
+            return false;
 
         float v = launchSpeed * reachSpeedMargin;
 
@@ -333,8 +360,17 @@ public class StageManager : MonoBehaviour
         float tan1 = (d.x + sqrt) / (2f * a);
         float tan2 = (d.x - sqrt) / (2f * a);
 
-        return IsValidLaunch(tan1, d.x, v) ||
-               IsValidLaunch(tan2, d.x, v);
+        bool valid1 = IsValidLaunch(tan1, d.x, v);
+        bool valid2 = IsValidLaunch(tan2, d.x, v);
+
+        if (valid1 && valid2)
+            launchTan = Random.value < 0.5f ? tan1 : tan2;
+        else if (valid1)
+            launchTan = tan1;
+        else if (valid2)
+            launchTan = tan2;
+
+        return valid1 || valid2;
     }
 
     private bool IsValidLaunch(float tan, float horizontalDistance, float speed)
@@ -421,6 +457,51 @@ public class StageManager : MonoBehaviour
         currentSlingshot.transform.position += offset;
 
         playerLauncher.AttachSlingshot(slingshot);
+    }
+
+    // 목표까지 도달 가능한 궤적 하나를 골라 그 위(약간 벗어나게)에 코인을 놓는다.
+    private void SpawnCoins(Vector2 goalPosition)
+    {
+        if (coinPrefab == null || currentPlatform == null)
+            return;
+
+        Vector2 origin = GetPlayerPositionOn(currentPlatform, lastPlatformPosition);
+
+        if (!TrySolveLaunch(origin, goalPosition, out float tan))
+            return;
+
+        float g = GetGravity();
+        float v = launchSpeed * reachSpeedMargin;
+        float dx = goalPosition.x - origin.x;
+
+        // 자체 검증: 고른 궤적이 실제로 목표를 지나야 한다
+        float goalY = dx * tan - g * dx * dx * (1f + tan * tan) / (2f * v * v);
+        Debug.Assert(Mathf.Abs(goalY - (goalPosition.y - origin.y)) < 0.05f,
+            "StageManager: 코인 궤적이 목표를 지나지 않습니다.");
+
+        int count = Random.Range(minCoinsPerStage, maxCoinsPerStage + 1);
+
+        for (int i = 0; i < count; i++)
+        {
+            // 발사 지점/목표에 붙지 않도록 궤적의 30%~70% 구간에 고르게
+            float t = count == 1 ? 0.5f : Mathf.Lerp(0.3f, 0.7f, i / (float)(count - 1));
+            float x = dx * t;
+            float y = x * tan - g * x * x * (1f + tan * tan) / (2f * v * v);
+
+            Vector2 position = origin + new Vector2(x, y + Random.Range(-coinPathOffset, coinPathOffset));
+            currentCoins.Add(Instantiate(coinPrefab, position, Quaternion.identity));
+        }
+    }
+
+    private void ClearCoins()
+    {
+        foreach (GameObject coin in currentCoins)
+        {
+            if (coin != null)
+                Destroy(coin);
+        }
+
+        currentCoins.Clear();
     }
 
     private float GetCurrentGoalRadius()

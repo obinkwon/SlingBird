@@ -15,6 +15,8 @@ public class GameUI : MonoBehaviour
 
     [Header("플레이 중 UI")]
     [SerializeField] private Text scoreText;
+    [Tooltip("보유 코인 표시 (선택)")]
+    [SerializeField] private Text coinText;
 
     [Header("게임오버 UI")]
     [SerializeField] private GameObject gameOverPanel;
@@ -44,6 +46,7 @@ public class GameUI : MonoBehaviour
 
     // 점수가 바뀔 때만 문자열을 다시 만들기 위한 캐시
     private int shownScore = -1;
+    private int shownCoins = -1;
 
     private void Start()
     {
@@ -90,6 +93,13 @@ public class GameUI : MonoBehaviour
 
     private void RefreshScore()
     {
+        int coins = CoinWallet.Coins;
+        if (coinText != null && coins != shownCoins)
+        {
+            shownCoins = coins;
+            coinText.text = $"COIN : {coins}";
+        }
+
         int score = stageManager.GetScore();
         if (scoreText == null || score == shownScore) return;
 

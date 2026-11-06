@@ -14,6 +14,9 @@ public class PlayerSkinData : ScriptableObject
     public Sprite landedSprite;   // 비워두면 readySprite 사용
     public Sprite deadSprite;
 
+    [Tooltip("비행 중 반복 재생할 날갯짓 프레임. 비워두면 flyingSprite만 사용")]
+    public Sprite[] flyingFrames;
+
     [Header("Shop (optional)")]
     public int price;
     public Sprite thumbnail;
