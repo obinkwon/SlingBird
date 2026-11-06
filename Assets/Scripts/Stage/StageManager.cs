@@ -66,6 +66,9 @@ public class StageManager : MonoBehaviour
     private GameObject currentGoal;
     private GameObject currentSlingshot;
 
+    // CameraFollow가 목표를 화면에 함께 담을 때 사용
+    public GameObject CurrentGoal => currentGoal;
+
     private Rigidbody2D playerRb;
     private Collider2D playerCollider;
 

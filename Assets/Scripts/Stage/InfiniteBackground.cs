@@ -40,6 +40,10 @@ public class InfiniteBackground : MonoBehaviour
 
     private readonly List<Transform> tiles = new List<Transform>();
 
+    private const float ZoomHeadroom = 1.5f;
+    private float builtViewWidth;
+    private float builtViewHeight;
+
     private void Start()
     {
         sourceRenderer = GetComponent<SpriteRenderer>();
@@ -92,6 +96,12 @@ public class InfiniteBackground : MonoBehaviour
     private void CreateTiles()
     {
         GetViewSize(out float viewWidth, out float viewHeight);
+
+        // 카메라 줌아웃(CameraFollow 목표 프레이밍)에 대비해 여유를 두고 만든다.
+        viewWidth *= ZoomHeadroom;
+        viewHeight *= ZoomHeadroom;
+        builtViewWidth = viewWidth;
+        builtViewHeight = viewHeight;
 
         columns = scrollHorizontal ? CalculateCount(viewWidth, stepX) : 1;
         rows = scrollVertical ? CalculateCount(viewHeight, stepY) : 1;
@@ -209,7 +219,24 @@ public class InfiniteBackground : MonoBehaviour
         if (cameraTransform == null) return;
         if (tiles.Count == 0) return;
 
+        // 카메라가 만들어둔 범위보다 더 줌아웃하면 타일을 다시 만든다.
+        GetViewSize(out float viewWidth, out float viewHeight);
+        if (viewWidth > builtViewWidth || viewHeight > builtViewHeight)
+            RebuildTiles();
+
         UpdateTiles();
+    }
+
+    private void RebuildTiles()
+    {
+        // 0번은 원본이므로 남기고 복제 타일만 제거
+        for (int i = 1; i < tiles.Count; i++)
+        {
+            if (tiles[i] != null)
+                Destroy(tiles[i].gameObject);
+        }
+
+        CreateTiles();
     }
 
     private void UpdateTiles()
