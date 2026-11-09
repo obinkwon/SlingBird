@@ -50,8 +50,6 @@ public class StageManager : MonoBehaviour
     [Tooltip("스테이지마다 배치할 코인 개수 범위")]
     [SerializeField] private int minCoinsPerStage = 1;
     [SerializeField] private int maxCoinsPerStage = 3;
-    [Tooltip("도달 가능한 궤적에서 코인을 위아래로 벗어나게 할 최대 거리 (클수록 노리기 어려움)")]
-    [SerializeField] private float coinPathOffset = 0.6f;
 
     [Header("Score")]
     [SerializeField] private int scorePerGoal = 100;
@@ -459,7 +457,7 @@ public class StageManager : MonoBehaviour
         playerLauncher.AttachSlingshot(slingshot);
     }
 
-    // 목표까지 도달 가능한 궤적 하나를 골라 그 위(약간 벗어나게)에 코인을 놓는다.
+    // 목표 방향으로, 최대로 당겼을 때 닿을 수 있는 높이 범위 안에서 위아래 무작위로 코인을 놓는다.
     private void SpawnCoins(Vector2 goalPosition)
     {
         if (coinPrefab == null || currentPlatform == null)
@@ -467,31 +465,44 @@ public class StageManager : MonoBehaviour
 
         Vector2 origin = GetPlayerPositionOn(currentPlatform, lastPlatformPosition);
 
-        if (!TrySolveLaunch(origin, goalPosition, out float tan))
-            return;
-
         float g = GetGravity();
         float v = launchSpeed * reachSpeedMargin;
         float dx = goalPosition.x - origin.x;
 
-        // 자체 검증: 고른 궤적이 실제로 목표를 지나야 한다
-        float goalY = dx * tan - g * dx * dx * (1f + tan * tan) / (2f * v * v);
-        Debug.Assert(Mathf.Abs(goalY - (goalPosition.y - origin.y)) < 0.05f,
-            "StageManager: 코인 궤적이 목표를 지나지 않습니다.");
+        if (g <= 0.0001f || dx <= 0.01f)
+            return;
+
+        float tanMin = Mathf.Tan(minLaunchAngle * Mathf.Deg2Rad);
+        float tanMax = Mathf.Tan(maxLaunchAngle * Mathf.Deg2Rad);
 
         int count = Random.Range(minCoinsPerStage, maxCoinsPerStage + 1);
 
         for (int i = 0; i < count; i++)
         {
-            // 발사 지점/목표에 붙지 않도록 궤적의 30%~70% 구간에 고르게
-            float t = count == 1 ? 0.5f : Mathf.Lerp(0.3f, 0.7f, i / (float)(count - 1));
-            float x = dx * t;
-            float y = x * tan - g * x * x * (1f + tan * tan) / (2f * v * v);
+            // 발사 지점/목표에 붙지 않도록 가로 20%~80% 구간에 고르게
+            float x = dx * (count == 1 ? 0.5f : Mathf.Lerp(0.2f, 0.8f, i / (float)(count - 1)));
 
-            Vector2 position = origin + new Vector2(x, y + Random.Range(-coinPathOffset, coinPathOffset));
-            currentCoins.Add(Instantiate(coinPrefab, position, Quaternion.identity));
+            // 이 x에서 닿는 높이: 가장 낮은 각도 ~ 가장 높이 닿는 각도(v²/gx, 각도 제한 안으로)
+            float yLow = HeightAt(x, tanMin, g, v);
+            float yHigh = HeightAt(x, Mathf.Clamp(v * v / (g * x), tanMin, tanMax), g, v);
+
+            // 비행 시간 제한까지 지키는 위치가 나올 때까지 몇 번 다시 뽑는다
+            for (int attempt = 0; attempt < 10; attempt++)
+            {
+                Vector2 position = origin + new Vector2(x, Random.Range(yLow, yHigh));
+
+                if (!TrySolveLaunch(origin, position, out _))
+                    continue;
+
+                currentCoins.Add(Instantiate(coinPrefab, position, Quaternion.identity));
+                break;
+            }
         }
     }
+
+    // 발사 기울기 tan, 속도 v로 쐈을 때 가로 x에서의 높이 (발사 지점 기준)
+    private static float HeightAt(float x, float tan, float g, float v) =>
+        x * tan - g * x * x * (1f + tan * tan) / (2f * v * v);
 
     private void ClearCoins()
     {

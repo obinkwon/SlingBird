@@ -94,11 +94,8 @@ public class CameraFollow : MonoBehaviour
             return;
         }
 
-        // 대기(Ready/Landed): 플레이어 중심, 기본 줌
-        if (player != null && player.CanAim())
-            desiredSize = baseOrthographicSize;
-
-        // 비행/사망: 플레이어를 따라가며 줌은 그대로 유지 (비행 중 목표가 다시 사라지지 않도록)
+        // 놓은 뒤(비행/대기/사망): 플레이어를 따라가며 기본 줌으로 복귀
+        desiredSize = baseOrthographicSize;
         desiredPosition = target.position + offset;
         desiredPosition.z = offset.z;
     }
