@@ -154,7 +154,7 @@ public class ShopUI : MonoBehaviour
         if (actionButton != null)
         {
             // 기존 UI처럼 영문 라벨 (레거시 폰트에 한글 글리프가 없을 수 있음)
-            string label = manager.IsSelected(skin) ? "EQUIPPED"
+            string label = manager.IsSelected(skin) ? "SELECTED"
                 : unlocked ? "SELECT"
                 : $"BUY {skin.price}";
 

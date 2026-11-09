@@ -1124,7 +1124,7 @@ SpriteRenderer:
   m_SortingLayer: 1
   m_SortingOrder: 1
   m_MaskInteraction: 0
-  m_Sprite: {fileID: -4398183398628465896, guid: 615ba00025e27184189e9e11462a10d2, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 237470d3881c463fbffbe122f0168039, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -1249,10 +1249,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerWingFlap
   flyingFrames:
-  - {fileID: -4398183398628465896, guid: 615ba00025e27184189e9e11462a10d2, type: 3}
-  - {fileID: 21300000, guid: 6608757c26f74fcf9dec06b66a76f8d9, type: 3}
-  - {fileID: 21300000, guid: f5e34a66b8364503b2cb38da9080c391, type: 3}
-  - {fileID: 21300000, guid: 27b105d6f95f4c3a8f40b7b5c59509bf, type: 3}
+  - {fileID: 21300000, guid: 237470d3881c463fbffbe122f0168039, type: 3}
+  - {fileID: 21300000, guid: b578f4e4afc744709154c66f0a1f35a1, type: 3}
+  - {fileID: 21300000, guid: b3756562a1f14c4d9c0793c2024f4157, type: 3}
+  - {fileID: 21300000, guid: b1ba257804f34721b19a0a594157d355, type: 3}
   framesPerSecond: 12
 --- !u!114 &1001192750
 MonoBehaviour:
