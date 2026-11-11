@@ -68,12 +68,17 @@ public class StageManager : MonoBehaviour
     [Header("Wind")]
     [Tooltip("이 스테이지부터 좌우 바람이 분다.")]
     [SerializeField] private int windStartStage = 10;
-    [Tooltip("바람 가속도 범위 (m/s²)")]
-    [SerializeField] private float minWind = 1f;
-    [SerializeField] private float maxWind = 3f;
+    [Tooltip("바람 영역 안에서의 가속도 범위 (m/s²). 영역 안에 있는 동안만 받으므로 세게 잡는다")]
+    [SerializeField] private float minWind = 4f;
+    [SerializeField] private float maxWind = 8f;
     [SerializeField] private Sprite windSprite;
-    [Tooltip("바람 표시가 플레이어 대기 위치에서 떨어진 거리")]
-    [SerializeField] private Vector2 windIndicatorOffset = new Vector2(0f, 2.5f);
+    [Tooltip("발사 지점에서 바람 영역 왼쪽 끝까지의 가로 거리")]
+    [SerializeField] private float windAreaStart = 1.5f;
+    [SerializeField] private float windAreaWidth = 3.5f;
+    [Tooltip("발사 지점 기준 바람 영역의 아래/위 범위")]
+    [SerializeField] private float windAreaBelow = 3f;
+    [SerializeField] private float windAreaAbove = 5f;
+    [SerializeField] private int windStreakCount = 8;
 
     [Header("Score")]
     [SerializeField] private int scorePerGoal = 100;
@@ -97,8 +102,7 @@ public class StageManager : MonoBehaviour
     private GameObject currentGoal;
     private GameObject currentSlingshot;
     private GameObject currentTrampoline;
-    private GameObject windIndicator;
-    private float currentWind;
+    private GameObject windArea;
     private readonly List<GameObject> currentCoins = new List<GameObject>();
 
     // CameraFollow가 목표를 화면에 함께 담을 때 사용
@@ -223,6 +227,7 @@ public class StageManager : MonoBehaviour
         DestroyAndClear(ref currentGoal);
         DestroyAndClear(ref currentSlingshot);
         DestroyAndClear(ref currentTrampoline);
+        DestroyAndClear(ref windArea);
         ClearCoins();
 
         // Goal 위치에 새 플랫폼 생성 후 등록
@@ -358,8 +363,6 @@ public class StageManager : MonoBehaviour
     // 주머니 기준 계산보다 실제로는 닿기 어렵다. 그래서 각도마다
     // "그 각도로 쏠 때의 당긴 위치"를 출발점으로 잡고, 목표 x에서의 높이가
     // 목표 y를 위아래로 지나는(부호가 바뀌는) 각도가 있으면 도달 가능으로 본다.
-    //
-    // 높이: y = x*t - g*x^2*(1 + t^2) / (2*v^2)   (t = tan(theta))
 
     private bool CanReachGoal(Vector2 origin, Vector2 goalPosition)
     {
@@ -396,22 +399,20 @@ public class StageManager : MonoBehaviour
         {
             float rad = angle * Mathf.Deg2Rad;
             float cos = Mathf.Cos(rad);
-            float tan = Mathf.Tan(rad);
 
             Vector2 launchPos = pouch - new Vector2(cos, Mathf.Sin(rad)) * pull;
             Vector2 d = target - launchPos;
 
-            float vx = v * cos;
-            float t = FlightTimeTo(d.x, vx);
+            // 목표보다 뒤에서 출발하거나, 제한 시간 안에 목표 x까지 못 가면 무효
+            float diff = d.x <= 0.01f
+                ? float.NaN
+                : HeightDiffAtTarget(launchPos, new Vector2(cos, Mathf.Sin(rad)) * v, target, g);
 
-            // 목표보다 뒤에서 출발하거나, 맞바람에 못 가거나, 비행 시간이 너무 길면 무효
-            if (d.x <= 0.01f || float.IsNaN(t) || t > maxFlightTime)
+            if (float.IsNaN(diff))
             {
                 prevDiff = float.NaN;
                 continue;
             }
-
-            float diff = v * Mathf.Sin(rad) * t - 0.5f * g * t * t - d.y;
 
             if (diff == 0f || (!float.IsNaN(prevDiff) && (diff > 0f) != (prevDiff > 0f)))
                 return true;
@@ -422,49 +423,52 @@ public class StageManager : MonoBehaviour
         return false;
     }
 
-    // 가로 x만큼 가는 데 걸리는 시간: x = vx*t + wind*t²/2 (못 가면 NaN)
-    private float FlightTimeTo(float x, float vx)
+    // 바람 영역이 일부 구간에만 있어서 해석해 대신 짧게 시뮬레이션한다.
+    // 목표 x에 도달한 순간의 높이 - 목표 높이 (제한 시간 안에 못 가면 NaN)
+    private float HeightDiffAtTarget(Vector2 pos, Vector2 vel, Vector2 target, float g)
     {
-        if (Mathf.Abs(currentWind) < 0.0001f)
-            return x / vx;
+        const float dt = 0.02f;   // 기본 물리 FixedUpdate 간격과 같게
 
-        float disc = vx * vx + 2f * currentWind * x;
+        for (float t = 0f; t < maxFlightTime; t += dt)
+        {
+            Vector2 prev = pos;
 
-        if (disc < 0f)
-            return float.NaN;
+            vel += (new Vector2(0f, -g) + WindArea.AccelAt(pos)) * dt;
+            pos += vel * dt;
 
-        return (Mathf.Sqrt(disc) - vx) / currentWind;
+            if (pos.x >= target.x)
+            {
+                float f = (target.x - prev.x) / Mathf.Max(0.0001f, pos.x - prev.x);
+                return Mathf.Lerp(prev.y, pos.y, f) - target.y;
+            }
+        }
+
+        return float.NaN;
     }
 
     // =========================================================
     // Wind
     // =========================================================
 
+    // 발사 지점 앞쪽에 바람 영역을 만든다. 목표 위치보다 먼저 만들어야 도달 검사에 반영된다.
     private void ApplyWind()
     {
-        DestroyAndClear(ref windIndicator);
+        DestroyAndClear(ref windArea);
 
-        currentWind = stageCount >= windStartStage
-            ? Random.Range(minWind, maxWind) * (Random.value < 0.5f ? -1f : 1f)
-            : 0f;
-
-        if (player != null)
-            player.Wind = currentWind;
-
-        if (currentWind == 0f || windSprite == null)
+        if (stageCount < windStartStage)
             return;
 
-        // 플레이어 위에 바람 방향(좌우 반전)과 세기(크기)를 보여준다
-        windIndicator = new GameObject("WindIndicator");
-        windIndicator.transform.position =
-            GetPlayerPositionOn(currentPlatform, lastPlatformPosition) + windIndicatorOffset;
-        windIndicator.transform.localScale =
-            Vector3.one * Mathf.Lerp(0.6f, 1.2f, Mathf.InverseLerp(minWind, maxWind, Mathf.Abs(currentWind)));
+        float wind = Random.Range(minWind, maxWind) * (Random.value < 0.5f ? -1f : 1f);
+        Vector2 origin = GetPlayerPositionOn(currentPlatform, lastPlatformPosition);
 
-        SpriteRenderer sr = windIndicator.AddComponent<SpriteRenderer>();
-        sr.sprite = windSprite;
-        sr.flipX = currentWind < 0f;
-        sr.sortingOrder = 2;
+        Rect rect = new Rect(
+            origin.x + windAreaStart,
+            origin.y - windAreaBelow,
+            windAreaWidth,
+            windAreaBelow + windAreaAbove);
+
+        windArea = new GameObject("WindArea");
+        windArea.AddComponent<WindArea>().Init(rect, wind, windSprite, player, windStreakCount);
     }
 
     // =========================================================
