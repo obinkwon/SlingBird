@@ -51,6 +51,20 @@ public class StageManager : MonoBehaviour
     [SerializeField] private int minCoinsPerStage = 1;
     [SerializeField] private int maxCoinsPerStage = 3;
 
+    [Header("Bonus Coins")]
+    [Tooltip("이 스테이지 수마다 보너스 코인 지급 (0이면 끔)")]
+    [SerializeField] private int bonusStageInterval = 5;
+    [SerializeField] private int bonusCoins = 5;
+
+    [Header("Trampoline")]
+    [Tooltip("이 스테이지부터 발판과 목표 사이 아래쪽에 트램펄린이 나옵니다.")]
+    [SerializeField] private int trampolineStartStage = 5;
+    [Range(0f, 1f)]
+    [SerializeField] private float trampolineChance = 0.3f;
+    [Tooltip("발사 지점/목표 중 낮은 쪽보다 이만큼 아래에 놓는다 (정상 궤적을 막지 않도록)")]
+    [SerializeField] private float trampolineDrop = 2.5f;
+    [SerializeField] private float trampolineScale = 0.6f;
+
     [Header("Score")]
     [SerializeField] private int scorePerGoal = 100;
 
@@ -72,6 +86,7 @@ public class StageManager : MonoBehaviour
     private GameObject currentPlatform;
     private GameObject currentGoal;
     private GameObject currentSlingshot;
+    private GameObject currentTrampoline;
     private readonly List<GameObject> currentCoins = new List<GameObject>();
 
     // CameraFollow가 목표를 화면에 함께 담을 때 사용
@@ -178,6 +193,13 @@ public class StageManager : MonoBehaviour
         score += scorePerGoal;
         AudioManager.PlayGoal();
 
+        // 일정 스테이지마다 보너스 코인
+        if (bonusStageInterval > 0 && stageCount % bonusStageInterval == 0)
+        {
+            CoinWallet.Add(bonusCoins);
+            AudioManager.PlayCoin();
+        }
+
         // 새 스테이지 난이도에 맞춰 궤적 페이드 갱신
         ApplyTrajectoryDifficulty();
 
@@ -188,6 +210,7 @@ public class StageManager : MonoBehaviour
         DestroyAndClear(ref currentPlatform);
         DestroyAndClear(ref currentGoal);
         DestroyAndClear(ref currentSlingshot);
+        DestroyAndClear(ref currentTrampoline);
         ClearCoins();
 
         // Goal 위치에 새 플랫폼 생성 후 등록
@@ -211,6 +234,7 @@ public class StageManager : MonoBehaviour
         Vector2 goalPosition = GetNextGoalPosition();
         SpawnGoal(goalPosition);
         SpawnCoins(goalPosition);
+        SpawnTrampoline(goalPosition);
     }
 
     // =========================================================
@@ -305,13 +329,16 @@ public class StageManager : MonoBehaviour
     }
 
     // =========================================================
-    // Reachability (포물선 해석해)
+    // Reachability
     // =========================================================
     //
-    // y = x*t - g*x^2*(1 + t^2) / (2*v^2)   (t = tan(theta))
-    // 를 t에 대한 이차방정식으로 풀어, 허용 각도/비행시간 안의
-    // 해가 하나라도 있으면 도달 가능으로 판정합니다.
-    // (시간 스텝 시뮬레이션처럼 Goal을 통과해 버리는 오차가 없음)
+    // 실제 발사는 주머니(pouch)가 아니라 당긴 위치에서 시작한다.
+    // 위로 쏠수록 아래·뒤로 당기므로 발사 지점이 낮아져, 위쪽 목표가
+    // 주머니 기준 계산보다 실제로는 닿기 어렵다. 그래서 각도마다
+    // "그 각도로 쏠 때의 당긴 위치"를 출발점으로 잡고, 목표 x에서의 높이가
+    // 목표 y를 위아래로 지나는(부호가 바뀌는) 각도가 있으면 도달 가능으로 본다.
+    //
+    // 높이: y = x*t - g*x^2*(1 + t^2) / (2*v^2)   (t = tan(theta))
 
     private bool CanReachGoal(Vector2 origin, Vector2 goalPosition)
     {
@@ -322,22 +349,14 @@ public class StageManager : MonoBehaviour
         if (GetGravity() <= 0.0001f)
             return goalPosition.x - origin.x > 0.01f;
 
-        return TrySolveLaunch(origin, goalPosition, out _);
+        return TrySolveLaunch(origin, goalPosition);
     }
 
     private float GetGravity() =>
         playerRb != null ? -Physics2D.gravity.y * playerRb.gravityScale : 0f;
 
-    // 목표를 지나는 발사 각도(tan)를 구한다. 해가 둘이면 무작위로 하나를 고른다.
-    private bool TrySolveLaunch(Vector2 origin, Vector2 goalPosition, out float launchTan)
+    private bool TrySolveLaunch(Vector2 pouch, Vector2 target)
     {
-        launchTan = 0f;
-
-        Vector2 d = goalPosition - origin;
-
-        if (d.x <= 0.01f)
-            return false;
-
         float g = GetGravity();
 
         if (g <= 0.0001f)
@@ -345,43 +364,38 @@ public class StageManager : MonoBehaviour
 
         float v = launchSpeed * reachSpeedMargin;
 
-        float a = g * d.x * d.x / (2f * v * v);
-        float c = d.y + a;
+        // 속도 v가 나오는 최소 당김 거리 (더 당겨도 속도는 maxSpeed로 막힌다)
+        float pull = playerLauncher != null && playerLauncher.LaunchPower > 0f
+            ? v / playerLauncher.LaunchPower
+            : 0f;
 
-        float discriminant = d.x * d.x - 4f * a * c;
+        float prevDiff = float.NaN;
 
-        if (discriminant < 0f)
-            return false;
+        for (float angle = minLaunchAngle; angle <= maxLaunchAngle; angle += 1f)
+        {
+            float rad = angle * Mathf.Deg2Rad;
+            float cos = Mathf.Cos(rad);
+            float tan = Mathf.Tan(rad);
 
-        float sqrt = Mathf.Sqrt(discriminant);
+            Vector2 launchPos = pouch - new Vector2(cos, Mathf.Sin(rad)) * pull;
+            Vector2 d = target - launchPos;
 
-        float tan1 = (d.x + sqrt) / (2f * a);
-        float tan2 = (d.x - sqrt) / (2f * a);
+            // 목표보다 뒤에서 출발하거나 비행 시간이 너무 길면 이 각도는 무효
+            if (d.x <= 0.01f || d.x / (v * cos) > maxFlightTime)
+            {
+                prevDiff = float.NaN;
+                continue;
+            }
 
-        bool valid1 = IsValidLaunch(tan1, d.x, v);
-        bool valid2 = IsValidLaunch(tan2, d.x, v);
+            float diff = d.x * tan - g * d.x * d.x * (1f + tan * tan) / (2f * v * v) - d.y;
 
-        if (valid1 && valid2)
-            launchTan = Random.value < 0.5f ? tan1 : tan2;
-        else if (valid1)
-            launchTan = tan1;
-        else if (valid2)
-            launchTan = tan2;
+            if (diff == 0f || (!float.IsNaN(prevDiff) && (diff > 0f) != (prevDiff > 0f)))
+                return true;
 
-        return valid1 || valid2;
-    }
+            prevDiff = diff;
+        }
 
-    private bool IsValidLaunch(float tan, float horizontalDistance, float speed)
-    {
-        float angle = Mathf.Atan(tan) * Mathf.Rad2Deg;
-
-        if (angle < minLaunchAngle || angle > maxLaunchAngle)
-            return false;
-
-        float cos = Mathf.Cos(angle * Mathf.Deg2Rad);
-        float flightTime = horizontalDistance / (speed * cos);
-
-        return flightTime <= maxFlightTime;
+        return false;
     }
 
     // =========================================================
@@ -491,7 +505,7 @@ public class StageManager : MonoBehaviour
             {
                 Vector2 position = origin + new Vector2(x, Random.Range(yLow, yHigh));
 
-                if (!TrySolveLaunch(origin, position, out _))
+                if (!TrySolveLaunch(origin, position))
                     continue;
 
                 currentCoins.Add(Instantiate(coinPrefab, position, Quaternion.identity));
@@ -513,6 +527,34 @@ public class StageManager : MonoBehaviour
         }
 
         currentCoins.Clear();
+    }
+
+    // 발사 지점과 목표 사이, 둘 중 낮은 쪽보다 아래에 트램펄린을 놓는다.
+    // 포물선은 두 끝점을 잇는 선보다 위로 지나가므로 정상 궤적은 막지 않고, 짧게 떨어진 샷만 튕겨 올린다.
+    private void SpawnTrampoline(Vector2 goalPosition)
+    {
+        if (stageCount < trampolineStartStage || Random.value >= trampolineChance)
+            return;
+
+        Vector2 origin = GetPlayerPositionOn(currentPlatform, lastPlatformPosition);
+
+        Vector2 position = new Vector2(
+            Mathf.Lerp(origin.x, goalPosition.x, Random.Range(0.4f, 0.6f)),
+            Mathf.Min(origin.y, goalPosition.y) - trampolineDrop);
+
+        currentTrampoline = SpawnPlatform(position);
+
+        if (currentTrampoline == null)
+            return;
+
+        // Platform.Awake가 스케일을 1로 맞추므로 생성 후에 줄인다
+        currentTrampoline.transform.localScale = Vector3.one * trampolineScale;
+        Physics2D.SyncTransforms();
+
+        Platform platform = currentTrampoline.GetComponent<Platform>();
+
+        if (platform != null)
+            platform.MakeBouncy(player);
     }
 
     private float GetCurrentGoalRadius()

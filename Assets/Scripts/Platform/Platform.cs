@@ -12,7 +12,15 @@ public class Platform : MonoBehaviour
     [Tooltip("위쪽 속도가 이 값보다 크면 착지로 치지 않는다")]
     [SerializeField] private float maximumLandingVelocityY = 0.1f;
 
+    [Header("Bouncy")]
+    [SerializeField] private float bounceSpeed = 10f;
+    [SerializeField] private Sprite bouncySprite;
+
     public bool CanLand => canLand;
+
+    private bool isBouncy;
+    private PlayerController owner;
+    private bool bouncedThisShot;
 
     private void Awake()
     {
@@ -121,6 +129,48 @@ public class Platform : MonoBehaviour
     protected virtual void OnPlayerLanded(
         PlayerController player)
     {
+        // 트램펄린: 발사 한 번당 한 번만 튕긴다 (수직으로 무한히 튀는 것 방지)
+        if (isBouncy && !bouncedThisShot)
+        {
+            bouncedThisShot = true;
+
+            Rigidbody2D playerRb = player.GetComponent<Rigidbody2D>();
+            playerRb.linearVelocity = new Vector2(playerRb.linearVelocity.x, bounceSpeed);
+            AudioManager.PlayLaunch();
+            return;
+        }
+
         player.Land();
+    }
+
+    // =========================================================
+    // Special Platform
+    // =========================================================
+
+    // 목표 가는 길목에 놓이는 트램펄린으로 만든다 (StageManager가 호출)
+    public void MakeBouncy(PlayerController player)
+    {
+        isBouncy = true;
+        owner = player;
+
+        SpriteRenderer spriteRenderer = GetComponent<SpriteRenderer>();
+
+        if (spriteRenderer != null && bouncySprite != null)
+            spriteRenderer.sprite = bouncySprite;
+
+        if (owner != null)
+            owner.OnStateChanged += OnOwnerStateChanged;
+    }
+
+    private void OnOwnerStateChanged(PlayerController.PlayerState state)
+    {
+        if (state == PlayerController.PlayerState.Aiming)
+            bouncedThisShot = false;
+    }
+
+    private void OnDestroy()
+    {
+        if (owner != null)
+            owner.OnStateChanged -= OnOwnerStateChanged;
     }
 }

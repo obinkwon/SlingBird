@@ -155,3 +155,4 @@ MonoBehaviour:
   canLand: 1
   minimumLandingNormalY: 0.5
   maximumLandingVelocityY: 0.1
+  bouncySprite: {fileID: -5113850848988359095, guid: 824f3dbb74c9450e9011e4318b257f3f, type: 3}

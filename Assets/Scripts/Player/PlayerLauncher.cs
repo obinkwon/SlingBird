@@ -102,6 +102,9 @@ public class PlayerLauncher : MonoBehaviour
     /// fadeStart부터 서서히 옅어지고 fadeEnd에서 완전히 사라진다.
     /// (1, 1)이면 난이도 페이드 없음.
     /// </summary>
+    /// <summary>당긴 거리 x 이 값 = 발사 속도 (StageManager 도달 검사용)</summary>
+    public float LaunchPower => launchPower;
+
     public void SetTrajectoryFade(float fadeStart, float fadeEnd)
     {
         trajectoryFadeStart = Mathf.Clamp01(fadeStart);
