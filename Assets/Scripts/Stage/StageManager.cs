@@ -293,6 +293,12 @@ public class StageManager : MonoBehaviour
                 Random.Range(minVerticalDistance, maxVerticalDistance) *
                 PickVerticalSign();
 
+            // 실패할수록 최소 거리 쪽으로 당겨온다: 위쪽 목표는 멀리 못 가므로
+            // 가까운 거리에서라도 위쪽 목표가 나올 수 있게 한다
+            float shrink = attempt / (float)Mathf.Max(1, maxGoalGenerationAttempts - 1);
+            horizontal = Mathf.Lerp(horizontal, minPlatformDistance, shrink);
+            vertical = Mathf.Lerp(vertical, minVerticalDistance * Mathf.Sign(vertical), shrink);
+
             Vector2 candidate =
                 lastPlatformPosition + new Vector2(horizontal, vertical);
 
