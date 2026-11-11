@@ -19,8 +19,6 @@ public class Platform : MonoBehaviour
     public bool CanLand => canLand;
 
     private bool isBouncy;
-    private PlayerController owner;
-    private bool bouncedThisShot;
 
     private void Awake()
     {
@@ -129,14 +127,15 @@ public class Platform : MonoBehaviour
     protected virtual void OnPlayerLanded(
         PlayerController player)
     {
-        // 트램펄린: 발사 한 번당 한 번만 튕긴다 (수직으로 무한히 튀는 것 방지)
-        if (isBouncy && !bouncedThisShot)
+        // 트램펄린: 한 번 튕겨 주고 사라진다 (다시 착지해 새총으로 돌아가는 일 없음)
+        if (isBouncy)
         {
-            bouncedThisShot = true;
+            isBouncy = false;
 
             Rigidbody2D playerRb = player.GetComponent<Rigidbody2D>();
             playerRb.linearVelocity = new Vector2(playerRb.linearVelocity.x, bounceSpeed);
             AudioManager.PlayLaunch();
+            Destroy(gameObject);
             return;
         }
 
@@ -148,29 +147,13 @@ public class Platform : MonoBehaviour
     // =========================================================
 
     // 목표 가는 길목에 놓이는 트램펄린으로 만든다 (StageManager가 호출)
-    public void MakeBouncy(PlayerController player)
+    public void MakeBouncy()
     {
         isBouncy = true;
-        owner = player;
 
         SpriteRenderer spriteRenderer = GetComponent<SpriteRenderer>();
 
         if (spriteRenderer != null && bouncySprite != null)
             spriteRenderer.sprite = bouncySprite;
-
-        if (owner != null)
-            owner.OnStateChanged += OnOwnerStateChanged;
-    }
-
-    private void OnOwnerStateChanged(PlayerController.PlayerState state)
-    {
-        if (state == PlayerController.PlayerState.Aiming)
-            bouncedThisShot = false;
-    }
-
-    private void OnDestroy()
-    {
-        if (owner != null)
-            owner.OnStateChanged -= OnOwnerStateChanged;
     }
 }

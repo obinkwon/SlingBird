@@ -60,7 +60,7 @@ public class StageManager : MonoBehaviour
     [Tooltip("이 스테이지부터 발판과 목표 사이 아래쪽에 트램펄린이 나옵니다.")]
     [SerializeField] private int trampolineStartStage = 5;
     [Range(0f, 1f)]
-    [SerializeField] private float trampolineChance = 0.3f;
+    [SerializeField] private float trampolineChance = 1f;
     [Tooltip("발사 지점/목표 중 낮은 쪽보다 이만큼 아래에 놓는다 (정상 궤적을 막지 않도록)")]
     [SerializeField] private float trampolineDrop = 2.5f;
     [SerializeField] private float trampolineScale = 0.6f;
@@ -536,7 +536,7 @@ public class StageManager : MonoBehaviour
     }
 
     // 발사 지점과 목표 사이, 둘 중 낮은 쪽보다 아래에 트램펄린을 놓는다.
-    // 포물선은 두 끝점을 잇는 선보다 위로 지나가므로 정상 궤적은 막지 않고, 짧게 떨어진 샷만 튕겨 올린다.
+    // 포물선은 두 끝점을 잇는 선보다 위로 지나가므로 정상 궤적은 막지 않고, 짧게 떨어진 샷만 한 번 튕겨 올리고 사라진다.
     private void SpawnTrampoline(Vector2 goalPosition)
     {
         if (stageCount < trampolineStartStage || Random.value >= trampolineChance)
@@ -560,7 +560,7 @@ public class StageManager : MonoBehaviour
         Platform platform = currentTrampoline.GetComponent<Platform>();
 
         if (platform != null)
-            platform.MakeBouncy(player);
+            platform.MakeBouncy();
     }
 
     private float GetCurrentGoalRadius()
