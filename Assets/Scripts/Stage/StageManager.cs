@@ -66,19 +66,26 @@ public class StageManager : MonoBehaviour
     [SerializeField] private float trampolineScale = 0.6f;
 
     [Header("Wind")]
-    [Tooltip("이 스테이지부터 좌우 바람이 분다.")]
+    [Tooltip("이 스테이지부터 가로 바람 줄이 1줄 생긴다.")]
     [SerializeField] private int windStartStage = 10;
+    [Tooltip("이 스테이지 수마다 바람 줄이 1줄씩 늘어난다.")]
+    [SerializeField] private int windRowStageInterval = 5;
+    [SerializeField] private int maxWindRows = 4;
     [Tooltip("바람 영역 안에서의 가속도 범위 (m/s²). 영역 안에 있는 동안만 받으므로 세게 잡는다")]
-    [SerializeField] private float minWind = 4f;
-    [SerializeField] private float maxWind = 8f;
+    [SerializeField] private float minWind = 20f;
+    [SerializeField] private float maxWind = 35f;
     [SerializeField] private Sprite windSprite;
-    [Tooltip("발사 지점에서 바람 영역 왼쪽 끝까지의 가로 거리")]
-    [SerializeField] private float windAreaStart = 1.5f;
-    [SerializeField] private float windAreaWidth = 3.5f;
-    [Tooltip("발사 지점 기준 바람 영역의 아래/위 범위")]
+    [Tooltip("발사 지점에서 바람 줄 왼쪽 끝까지의 가로 거리")]
+    [SerializeField] private float windAreaStart = 1f;
+    [Tooltip("바람 줄의 가로 길이")]
+    [SerializeField] private float windAreaWidth = 9f;
+    [Tooltip("바람 줄 한 줄의 두께")]
+    [SerializeField] private float windRowHeight = 1.2f;
+    [Tooltip("발사 지점 기준 바람 줄이 놓일 수 있는 아래/위 범위")]
     [SerializeField] private float windAreaBelow = 3f;
     [SerializeField] private float windAreaAbove = 5f;
-    [SerializeField] private int windStreakCount = 8;
+    [Tooltip("바람 줄 한 줄에 보이는 바람 줄기 개수")]
+    [SerializeField] private int windStreakCount = 7;
 
     [Header("Score")]
     [SerializeField] private int scorePerGoal = 100;
@@ -102,7 +109,6 @@ public class StageManager : MonoBehaviour
     private GameObject currentGoal;
     private GameObject currentSlingshot;
     private GameObject currentTrampoline;
-    private GameObject windArea;
     private readonly List<GameObject> currentCoins = new List<GameObject>();
 
     // CameraFollow가 목표를 화면에 함께 담을 때 사용
@@ -227,7 +233,7 @@ public class StageManager : MonoBehaviour
         DestroyAndClear(ref currentGoal);
         DestroyAndClear(ref currentSlingshot);
         DestroyAndClear(ref currentTrampoline);
-        DestroyAndClear(ref windArea);
+        WindArea.DestroyAll();
         ClearCoins();
 
         // Goal 위치에 새 플랫폼 생성 후 등록
@@ -450,25 +456,47 @@ public class StageManager : MonoBehaviour
     // Wind
     // =========================================================
 
-    // 발사 지점 앞쪽에 바람 영역을 만든다. 목표 위치보다 먼저 만들어야 도달 검사에 반영된다.
+    // 발사 지점 앞쪽에 가로로 긴 바람 줄을 만든다. 줄마다 방향/세기가 따로다.
+    // 목표 위치보다 먼저 만들어야 도달 검사에 반영된다.
     private void ApplyWind()
     {
-        DestroyAndClear(ref windArea);
+        WindArea.DestroyAll();
 
         if (stageCount < windStartStage)
             return;
 
-        float wind = Random.Range(minWind, maxWind) * (Random.value < 0.5f ? -1f : 1f);
+        // 10스테이지 1줄, 15스테이지부터 2줄 ... (최대 maxWindRows)
+        int rows = Mathf.Min(
+            maxWindRows,
+            1 + (stageCount - windStartStage) / Mathf.Max(1, windRowStageInterval));
+
         Vector2 origin = GetPlayerPositionOn(currentPlatform, lastPlatformPosition);
 
-        Rect rect = new Rect(
-            origin.x + windAreaStart,
-            origin.y - windAreaBelow,
-            windAreaWidth,
-            windAreaBelow + windAreaAbove);
+        // 세로 범위를 줄 두께 단위 칸으로 나눠, 겹치지 않게 무작위 칸을 고른다
+        float bottom = origin.y - windAreaBelow;
+        int slotCount = Mathf.Max(1, Mathf.FloorToInt((windAreaBelow + windAreaAbove) / windRowHeight));
 
-        windArea = new GameObject("WindArea");
-        windArea.AddComponent<WindArea>().Init(rect, wind, windSprite, player, windStreakCount);
+        List<int> slots = new List<int>();
+        for (int i = 0; i < slotCount; i++)
+            slots.Add(i);
+
+        for (int r = 0; r < rows && slots.Count > 0; r++)
+        {
+            int pick = Random.Range(0, slots.Count);
+            int slot = slots[pick];
+            slots.RemoveAt(pick);
+
+            Rect rect = new Rect(
+                origin.x + windAreaStart,
+                bottom + slot * windRowHeight,
+                windAreaWidth,
+                windRowHeight);
+
+            float wind = Random.Range(minWind, maxWind) * (Random.value < 0.5f ? -1f : 1f);
+
+            GameObject row = new GameObject($"WindRow_{r}");
+            row.AddComponent<WindArea>().Init(rect, wind, windSprite, player, windStreakCount);
+        }
     }
 
     // =========================================================
