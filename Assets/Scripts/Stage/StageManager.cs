@@ -65,6 +65,16 @@ public class StageManager : MonoBehaviour
     [SerializeField] private float trampolineDrop = 2.5f;
     [SerializeField] private float trampolineScale = 0.6f;
 
+    [Header("Wind")]
+    [Tooltip("이 스테이지부터 좌우 바람이 분다.")]
+    [SerializeField] private int windStartStage = 10;
+    [Tooltip("바람 가속도 범위 (m/s²)")]
+    [SerializeField] private float minWind = 1f;
+    [SerializeField] private float maxWind = 3f;
+    [SerializeField] private Sprite windSprite;
+    [Tooltip("바람 표시가 플레이어 대기 위치에서 떨어진 거리")]
+    [SerializeField] private Vector2 windIndicatorOffset = new Vector2(0f, 2.5f);
+
     [Header("Score")]
     [SerializeField] private int scorePerGoal = 100;
 
@@ -87,6 +97,8 @@ public class StageManager : MonoBehaviour
     private GameObject currentGoal;
     private GameObject currentSlingshot;
     private GameObject currentTrampoline;
+    private GameObject windIndicator;
+    private float currentWind;
     private readonly List<GameObject> currentCoins = new List<GameObject>();
 
     // CameraFollow가 목표를 화면에 함께 담을 때 사용
@@ -231,6 +243,9 @@ public class StageManager : MonoBehaviour
 
     private void SpawnNextGoal()
     {
+        // 바람을 먼저 정해야 목표/코인 도달 검사에 반영된다
+        ApplyWind();
+
         Vector2 goalPosition = GetNextGoalPosition();
         SpawnGoal(goalPosition);
         SpawnCoins(goalPosition);
@@ -386,14 +401,17 @@ public class StageManager : MonoBehaviour
             Vector2 launchPos = pouch - new Vector2(cos, Mathf.Sin(rad)) * pull;
             Vector2 d = target - launchPos;
 
-            // 목표보다 뒤에서 출발하거나 비행 시간이 너무 길면 이 각도는 무효
-            if (d.x <= 0.01f || d.x / (v * cos) > maxFlightTime)
+            float vx = v * cos;
+            float t = FlightTimeTo(d.x, vx);
+
+            // 목표보다 뒤에서 출발하거나, 맞바람에 못 가거나, 비행 시간이 너무 길면 무효
+            if (d.x <= 0.01f || float.IsNaN(t) || t > maxFlightTime)
             {
                 prevDiff = float.NaN;
                 continue;
             }
 
-            float diff = d.x * tan - g * d.x * d.x * (1f + tan * tan) / (2f * v * v) - d.y;
+            float diff = v * Mathf.Sin(rad) * t - 0.5f * g * t * t - d.y;
 
             if (diff == 0f || (!float.IsNaN(prevDiff) && (diff > 0f) != (prevDiff > 0f)))
                 return true;
@@ -402,6 +420,51 @@ public class StageManager : MonoBehaviour
         }
 
         return false;
+    }
+
+    // 가로 x만큼 가는 데 걸리는 시간: x = vx*t + wind*t²/2 (못 가면 NaN)
+    private float FlightTimeTo(float x, float vx)
+    {
+        if (Mathf.Abs(currentWind) < 0.0001f)
+            return x / vx;
+
+        float disc = vx * vx + 2f * currentWind * x;
+
+        if (disc < 0f)
+            return float.NaN;
+
+        return (Mathf.Sqrt(disc) - vx) / currentWind;
+    }
+
+    // =========================================================
+    // Wind
+    // =========================================================
+
+    private void ApplyWind()
+    {
+        DestroyAndClear(ref windIndicator);
+
+        currentWind = stageCount >= windStartStage
+            ? Random.Range(minWind, maxWind) * (Random.value < 0.5f ? -1f : 1f)
+            : 0f;
+
+        if (player != null)
+            player.Wind = currentWind;
+
+        if (currentWind == 0f || windSprite == null)
+            return;
+
+        // 플레이어 위에 바람 방향(좌우 반전)과 세기(크기)를 보여준다
+        windIndicator = new GameObject("WindIndicator");
+        windIndicator.transform.position =
+            GetPlayerPositionOn(currentPlatform, lastPlatformPosition) + windIndicatorOffset;
+        windIndicator.transform.localScale =
+            Vector3.one * Mathf.Lerp(0.6f, 1.2f, Mathf.InverseLerp(minWind, maxWind, Mathf.Abs(currentWind)));
+
+        SpriteRenderer sr = windIndicator.AddComponent<SpriteRenderer>();
+        sr.sprite = windSprite;
+        sr.flipX = currentWind < 0f;
+        sr.sortingOrder = 2;
     }
 
     // =========================================================

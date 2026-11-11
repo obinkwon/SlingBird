@@ -36,6 +36,9 @@ public class PlayerController : MonoBehaviour
     /// <summary>상태가 바뀔 때 호출됨</summary>
     public event Action<PlayerState> OnStateChanged;
 
+    /// <summary>비행 중 받는 가로 바람 가속도 (+ 오른쪽). StageManager가 스테이지마다 설정</summary>
+    public float Wind { get; set; }
+
     private RigidbodyConstraints2D originalConstraints;
     private Platform currentPlatform;
     private Collider2D playerCollider;
@@ -70,6 +73,9 @@ public class PlayerController : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (State == PlayerState.Flying && Wind != 0f && rb != null)
+            rb.linearVelocity += new Vector2(Wind * Time.fixedDeltaTime, 0f);
+
         // 발사 직후 무시했던 플랫폼 충돌은
         // 최소 시간이 지나고, 더 이상 겹치지 않을 때 복구
         if (ignoredPlatformCollider == null || Time.time < ignoreEndTime)

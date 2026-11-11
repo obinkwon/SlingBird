@@ -296,7 +296,8 @@ public class PlayerLauncher : MonoBehaviour
         Vector2 pos = dragPos;
 
         float gravityScale = playerRb != null ? playerRb.gravityScale : 1f;
-        Vector2 gravity = Physics2D.gravity * gravityScale;
+        // 바람도 일정한 가속도라 중력과 함께 더해서 미리보기에 반영
+        Vector2 gravity = Physics2D.gravity * gravityScale + new Vector2(player.Wind, 0f);
 
         int used = 0;
         float travelled = 0f;

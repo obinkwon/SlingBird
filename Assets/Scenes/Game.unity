@@ -644,6 +644,7 @@ MonoBehaviour:
   maxLaunchAngle: 80
   maxFlightTime: 3
   maxGoalGenerationAttempts: 30
+  windSprite: {fileID: 21300000, guid: 015bbabf09d54fb39092020e3ab2fa7f, type: 3}
 --- !u!1 &656199902
 GameObject:
   m_ObjectHideFlags: 0
