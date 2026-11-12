@@ -37,6 +37,12 @@ public static class BuildScript
 
         EditorUserBuildSettings.buildAppBundle = true;
 
+        // Play Console 경고 해결: R8 난독화 → mapping 파일이 AAB에 자동 포함됨
+        PlayerSettings.Android.minifyRelease = true;
+        // 네이티브(IL2CPP) 디버그 기호를 AAB 안에 포함 → Play Console이 자동 인식
+        UnityEditor.Android.UserBuildSettings.DebugSymbols.level = Unity.Android.Types.DebugSymbolLevel.SymbolTable;
+        UnityEditor.Android.UserBuildSettings.DebugSymbols.format = Unity.Android.Types.DebugSymbolFormat.IncludeInBundle;
+
         var options = new BuildPlayerOptions
         {
             scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray(),
