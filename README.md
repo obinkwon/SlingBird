@@ -2,9 +2,9 @@
 <blockquote data-ke-style="style2">
 
 ## 개발환경
-- jvm : 11
-- SDK : 24 ~ 36
-- unity : 6000.5.10f1
+- jvm : 17 (Unity 내장 OpenJDK 17.0.18)
+- SDK : 26 ~ 36
+- unity : 6000.5.10f1 (2D)
 <br/><br/><br/>
 
 ## 수정내역
