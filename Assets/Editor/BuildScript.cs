@@ -58,6 +58,8 @@ public static class BuildScript
         }
 
         Debug.Log($"Android AAB 빌드 완료: {buildPath} (versionCode {PlayerSettings.Android.bundleVersionCode})");
+        // -quit 종료 단계에서 멈추는 경우가 있어 성공 시 직접 종료
+        EditorApplication.Exit(0);
     }
 
     private static string GetArg(string name)
