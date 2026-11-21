@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Runtime.InteropServices;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -54,12 +55,24 @@ public static class BuildScript
         if (report.summary.result != BuildResult.Succeeded)
         {
             Debug.LogError($"Android 빌드 실패: {report.summary.result}");
-            EditorApplication.Exit(1);
+            ForceExit(1);
         }
 
         Debug.Log($"Android AAB 빌드 완료: {buildPath} (versionCode {PlayerSettings.Android.bundleVersionCode})");
         // -quit 종료 단계에서 멈추는 경우가 있어 성공 시 직접 종료
-        EditorApplication.Exit(0);
+        ForceExit(0);
+    }
+
+    [DllImport("kernel32.dll")] private static extern IntPtr GetCurrentProcess();
+    [DllImport("kernel32.dll")] private static extern bool TerminateProcess(IntPtr handle, uint exitCode);
+
+    // EditorApplication.Exit도 Unity 6 배치모드 종료 정리에서 멈춤 → Windows에선 프로세스를 즉시 끝냄(fastlane이 무한 대기하지 않게)
+    private static void ForceExit(int code)
+    {
+        Console.Out.Flush();
+        if (Application.platform == RuntimePlatform.WindowsEditor)
+            TerminateProcess(GetCurrentProcess(), (uint)code);
+        EditorApplication.Exit(code);
     }
 
     private static string GetArg(string name)
@@ -75,7 +88,7 @@ public static class BuildScript
         if (string.IsNullOrEmpty(value))
         {
             Debug.LogError($"환경변수 {name}가 없습니다. 서명 정보를 설정하세요.");
-            EditorApplication.Exit(1);
+            ForceExit(1);
         }
         return value;
     }
